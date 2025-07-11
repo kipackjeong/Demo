@@ -10,8 +10,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup WebSocket server
   const wss = new WebSocketServer({ 
     server: httpServer, 
-    path: "/ws" 
+    path: "/chat-ws" 
   });
+  
+  console.log("WebSocket server initialized on path /chat-ws");
   
   setupWebSocketServer(wss, storage);
 

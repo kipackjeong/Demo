@@ -21,7 +21,7 @@ export default function ChatPage() {
     status: connectionStatus, 
     sendMessage: sendWebSocketMessage, 
     error 
-  } = useMinimalWebSocket("/ws", (data) => {
+  } = useMinimalWebSocket("/chat-ws", (data) => {
       if (data.type === "agent_response") {
         // Handle streaming response
         setMessages(prev => {
