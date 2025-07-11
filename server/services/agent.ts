@@ -11,6 +11,7 @@ export class AgentService {
   }
 
   private initializeAzureOpenAI() {
+    const apiKey = process.env.AZURE_OPENAI_API_KEY;
     const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
     const deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT_NAME;
     const apiVersion = process.env.AZURE_OPENAI_API_VERSION || "2024-02-01";
@@ -18,7 +19,7 @@ export class AgentService {
     console.log("Azure OpenAI Configuration:");
     console.log("- Endpoint:", endpoint ? `${endpoint.substring(0, 30)}...` : "Not set");
     console.log("- Deployment:", deploymentName || "Not set");
-    console.log("- Authentication: DefaultAzureCredential");
+    console.log("- API Key:", apiKey ? "Set" : "Not set");
     console.log("- API Version:", apiVersion);
 
     if (!endpoint || !deploymentName) {
@@ -30,21 +31,44 @@ export class AgentService {
     }
 
     try {
-      // Use DefaultAzureCredential for authentication
-      const credential = new DefaultAzureCredential();
-      
-      this.azureOpenAI = new AzureChatOpenAI({
-        azureADTokenProvider: () => credential.getToken("https://cognitiveservices.azure.com/.default"),
-        azureOpenAIEndpoint: endpoint,
-        azureOpenAIApiDeploymentName: deploymentName,
-        azureOpenAIApiVersion: apiVersion,
-        temperature: 0.7,
-        maxTokens: 1000,
-      });
-      console.log("Azure OpenAI initialized successfully with DefaultAzureCredential");
-      console.log("Note: Using Azure AD authentication instead of API key");
+      // Try DefaultAzureCredential first, fallback to API key
+      if (apiKey) {
+        console.log("Using API key authentication");
+        this.azureOpenAI = new AzureChatOpenAI({
+          azureOpenAIApiKey: apiKey,
+          azureOpenAIEndpoint: endpoint,
+          azureOpenAIApiDeploymentName: deploymentName,
+          azureOpenAIApiVersion: apiVersion,
+          temperature: 0.7,
+          maxTokens: 1000,
+        });
+        console.log("Azure OpenAI initialized successfully with API key");
+      } else {
+        console.log("Attempting DefaultAzureCredential authentication");
+        const credential = new DefaultAzureCredential();
+        
+        this.azureOpenAI = new AzureChatOpenAI({
+          azureADTokenProvider: async () => {
+            try {
+              const token = await credential.getToken("https://cognitiveservices.azure.com/.default");
+              console.log("Successfully obtained Azure AD token");
+              return token;
+            } catch (error) {
+              console.error("Failed to get Azure AD token:", error);
+              throw error;
+            }
+          },
+          azureOpenAIEndpoint: endpoint,
+          azureOpenAIApiDeploymentName: deploymentName,
+          azureOpenAIApiVersion: apiVersion,
+          temperature: 0.7,
+          maxTokens: 1000,
+        });
+        console.log("Azure OpenAI initialized successfully with DefaultAzureCredential");
+      }
     } catch (error) {
       console.error("Failed to initialize Azure OpenAI:", error);
+      console.error("Error details:", error.message);
     }
   }
 
