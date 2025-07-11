@@ -15,11 +15,13 @@ export function setupWebSocketServer(wss: WebSocketServer, storage: IStorage) {
         await handleWebSocketMessage(ws, message, storage, agentService);
       } catch (error) {
         console.error("Error handling WebSocket message:", error);
-        ws.send(JSON.stringify({
-          type: "error",
-          content: "Failed to process message",
-          sessionId: "",
-        }));
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: "error",
+            content: "Failed to process message",
+            sessionId: "",
+          }));
+        }
       }
     });
 
@@ -30,6 +32,14 @@ export function setupWebSocketServer(wss: WebSocketServer, storage: IStorage) {
     ws.on("error", (error) => {
       console.error("WebSocket error:", error);
     });
+
+    // Send initial connection success message
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: "connected",
+        sessionId: "",
+      }));
+    }
   });
 }
 

@@ -37,6 +37,7 @@ export function useWebSocket({
     wsRef.current = ws;
 
     ws.onopen = () => {
+      console.log("WebSocket connection opened");
       setConnectionStatus("connected");
       reconnectCountRef.current = 0;
       setError(null);
@@ -45,6 +46,10 @@ export function useWebSocket({
     ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
+        if (message.type === "connected") {
+          console.log("WebSocket connection confirmed");
+          return;
+        }
         onMessage(message);
       } catch (err) {
         console.error("Failed to parse WebSocket message:", err);
@@ -52,22 +57,25 @@ export function useWebSocket({
       }
     };
 
-    ws.onclose = () => {
+    ws.onclose = (event) => {
+      console.log("WebSocket connection closed:", event.code, event.reason);
       setConnectionStatus("disconnected");
       wsRef.current = null;
 
-      // Attempt to reconnect
-      if (reconnectCountRef.current < reconnectAttempts) {
+      // Only attempt to reconnect if not closed intentionally
+      if (event.code !== 1000 && reconnectCountRef.current < reconnectAttempts) {
         reconnectCountRef.current++;
+        console.log(`Attempting to reconnect (${reconnectCountRef.current}/${reconnectAttempts})`);
         reconnectTimeoutRef.current = setTimeout(() => {
           connect();
         }, reconnectInterval);
-      } else {
+      } else if (reconnectCountRef.current >= reconnectAttempts) {
         setError("Maximum reconnection attempts reached");
       }
     };
 
-    ws.onerror = () => {
+    ws.onerror = (error) => {
+      console.error("WebSocket error:", error);
       setError("WebSocket connection error");
     };
   }, [url, onMessage, reconnectAttempts, reconnectInterval]);
@@ -79,11 +87,13 @@ export function useWebSocket({
     }
 
     if (wsRef.current) {
-      wsRef.current.close();
+      wsRef.current.close(1000, "User disconnected");
       wsRef.current = null;
     }
 
+    reconnectCountRef.current = 0;
     setConnectionStatus("disconnected");
+    setError(null);
   }, []);
 
   const sendMessage = useCallback((message: WebSocketMessage) => {

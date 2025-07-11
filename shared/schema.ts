@@ -48,7 +48,7 @@ export type InsertChatSession = z.infer<typeof insertChatSessionSchema>;
 
 // WebSocket message types
 export const webSocketMessageSchema = z.object({
-  type: z.enum(["user_message", "agent_response", "typing", "done", "error"]),
+  type: z.enum(["user_message", "agent_response", "typing", "done", "error", "connected"]),
   content: z.string().optional(),
   sessionId: z.string(),
   timestamp: z.string().optional(),
