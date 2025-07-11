@@ -23,6 +23,8 @@ export function useMinimalWebSocket(url: string, onMessage: (message: WebSocketM
       if (mountedRef.current) {
         console.log("WebSocket opened, waiting for server confirmation");
         setError(null);
+        // Set connected immediately since the connection is established
+        setStatus("connected");
       }
     };
 

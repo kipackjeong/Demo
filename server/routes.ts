@@ -7,6 +7,11 @@ import { setupWebSocketServer } from "./services/websocket";
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   
+  // Add middleware to handle WebSocket upgrade requests
+  app.get("/chat-ws", (req, res) => {
+    res.status(400).send("WebSocket endpoint - use WebSocket protocol");
+  });
+  
   // Setup WebSocket server
   const wss = new WebSocketServer({ 
     server: httpServer, 
