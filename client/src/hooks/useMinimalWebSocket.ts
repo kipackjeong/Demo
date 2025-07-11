@@ -21,9 +21,8 @@ export function useMinimalWebSocket(url: string, onMessage: (message: WebSocketM
 
     ws.onopen = () => {
       if (mountedRef.current) {
-        console.log("WebSocket opened, waiting for server confirmation");
+        console.log("WebSocket opened successfully");
         setError(null);
-        // Set connected immediately since the connection is established
         setStatus("connected");
       }
     };
@@ -33,12 +32,7 @@ export function useMinimalWebSocket(url: string, onMessage: (message: WebSocketM
         try {
           const message = JSON.parse(event.data);
           console.log("Received WebSocket message:", message);
-          if (message.type === "connected") {
-            console.log("Connection confirmed by server");
-            setStatus("connected");
-          } else {
-            onMessage(message);
-          }
+          onMessage(message);
         } catch (err) {
           console.error("Message parse error:", err);
         }

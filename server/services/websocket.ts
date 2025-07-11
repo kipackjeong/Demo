@@ -6,16 +6,20 @@ import type { WebSocketMessage } from "@shared/schema";
 export function setupWebSocketServer(wss: WebSocketServer, storage: IStorage) {
   const agentService = new AgentService();
 
+  console.log("Setting up WebSocket server listeners...");
+
   wss.on("connection", (ws: WebSocket, req) => {
     console.log("New WebSocket connection established from:", req.socket.remoteAddress);
+    console.log("Connection headers:", req.headers);
 
     // Send initial connection success message immediately
     try {
-      ws.send(JSON.stringify({
+      const connectMessage = JSON.stringify({
         type: "connected",
         sessionId: "",
-      }));
-      console.log("Sent connection confirmation message");
+      });
+      ws.send(connectMessage);
+      console.log("Sent connection confirmation message:", connectMessage);
     } catch (error) {
       console.error("Error sending connection confirmation:", error);
     }

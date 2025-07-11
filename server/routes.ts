@@ -9,7 +9,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Add middleware to handle WebSocket upgrade requests
   app.get("/chat-ws", (req, res) => {
-    res.status(400).send("WebSocket endpoint - use WebSocket protocol");
+    res.status(426).send("Upgrade Required - WebSocket endpoint");
   });
   
   // Setup WebSocket server
