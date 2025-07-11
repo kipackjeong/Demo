@@ -9,8 +9,15 @@ export function setupWebSocketServer(wss: WebSocketServer, storage: IStorage) {
   wss.on("connection", (ws: WebSocket) => {
     console.log("New WebSocket connection established");
 
+    // Send initial connection success message immediately
+    ws.send(JSON.stringify({
+      type: "connected",
+      sessionId: "",
+    }));
+
     ws.on("message", async (data) => {
       try {
+        console.log("Received WebSocket message:", data.toString());
         const message: WebSocketMessage = JSON.parse(data.toString());
         await handleWebSocketMessage(ws, message, storage, agentService);
       } catch (error) {
@@ -25,21 +32,21 @@ export function setupWebSocketServer(wss: WebSocketServer, storage: IStorage) {
       }
     });
 
-    ws.on("close", () => {
-      console.log("WebSocket connection closed");
+    ws.on("close", (code, reason) => {
+      console.log("WebSocket connection closed:", code, reason.toString());
     });
 
     ws.on("error", (error) => {
       console.error("WebSocket error:", error);
     });
 
-    // Send initial connection success message
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({
-        type: "connected",
-        sessionId: "",
-      }));
-    }
+    ws.on("ping", () => {
+      console.log("WebSocket ping received");
+    });
+
+    ws.on("pong", () => {
+      console.log("WebSocket pong received");
+    });
   });
 }
 

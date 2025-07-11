@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { HeaderBar } from "@/components/HeaderBar";
 import { ChatWindow } from "@/components/ChatWindow";
 import { MessageInput } from "@/components/MessageInput";
-import { useWebSocket } from "@/hooks/useWebSocket";
+import { useMinimalWebSocket } from "@/hooks/useMinimalWebSocket";
 import { useTheme } from "@/hooks/useTheme";
 import { useToast } from "@/hooks/use-toast";
 import type { Message } from "@shared/schema";
@@ -18,12 +18,10 @@ export default function ChatPage() {
   const { theme, toggleTheme } = useTheme();
   
   const { 
-    connectionStatus, 
+    status: connectionStatus, 
     sendMessage: sendWebSocketMessage, 
     error 
-  } = useWebSocket({
-    url: "/ws",
-    onMessage: (data) => {
+  } = useMinimalWebSocket("/ws", (data) => {
       if (data.type === "agent_response") {
         // Handle streaming response
         setMessages(prev => {
@@ -69,7 +67,7 @@ export default function ChatPage() {
         });
       }
     }
-  });
+  );
 
   useEffect(() => {
     if (error) {
