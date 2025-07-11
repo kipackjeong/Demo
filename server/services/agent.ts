@@ -15,8 +15,18 @@ export class AgentService {
     const deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT_NAME;
     const apiVersion = process.env.AZURE_OPENAI_API_VERSION || "2024-02-01";
 
+    console.log("Azure OpenAI Configuration:");
+    console.log("- Endpoint:", endpoint ? `${endpoint.substring(0, 30)}...` : "Not set");
+    console.log("- Deployment:", deploymentName || "Not set");
+    console.log("- API Key:", apiKey ? "Set" : "Not set");
+    console.log("- API Version:", apiVersion);
+
     if (!apiKey || !endpoint || !deploymentName) {
       console.log("Azure OpenAI configuration incomplete. Using fallback responses.");
+      console.log("Missing:", 
+        (!apiKey ? "API_KEY " : "") + 
+        (!endpoint ? "ENDPOINT " : "") + 
+        (!deploymentName ? "DEPLOYMENT_NAME " : ""));
       return;
     }
 
@@ -30,19 +40,24 @@ export class AgentService {
         maxTokens: 1000,
       });
       console.log("Azure OpenAI initialized successfully");
+      console.log("Note: Actual API connection will be tested when first request is made");
     } catch (error) {
       console.error("Failed to initialize Azure OpenAI:", error);
     }
   }
 
   async generateResponse(userMessage: string, sessionId: string = "default"): Promise<string> {
+    console.log(`Generating response for session ${sessionId}: "${userMessage}"`);
+    
     if (!this.azureOpenAI) {
+      console.log("Azure OpenAI not initialized, using fallback");
       return this.getFallbackResponse(userMessage);
     }
 
     try {
       // Get conversation history for this session
       const history = this.conversationHistory.get(sessionId) || [];
+      console.log(`Session ${sessionId} has ${history.length} messages in history`);
       
       // Add user message to history
       history.push({ role: "user", content: userMessage });
@@ -59,9 +74,16 @@ export class AgentService {
         )
       ];
 
-      // Generate response
-      const response = await this.azureOpenAI.invoke(messages);
+      console.log(`Sending ${messages.length} messages to Azure OpenAI`);
+      
+      // Generate response with timeout
+      const response = await Promise.race([
+        this.azureOpenAI.invoke(messages),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Request timeout")), 30000))
+      ]);
+      
       const aiResponse = response.content as string;
+      console.log(`Received response from Azure OpenAI: "${aiResponse.substring(0, 100)}..."`);
 
       // Add AI response to history
       history.push({ role: "assistant", content: aiResponse });
@@ -76,15 +98,16 @@ export class AgentService {
       return aiResponse;
     } catch (error) {
       console.error("Error generating Azure OpenAI response:", error);
+      console.error("Error details:", error.message);
       return this.getFallbackResponse(userMessage);
     }
   }
 
   private getFallbackResponse(userMessage: string): string {
     const responses = [
-      "I'm currently having trouble connecting to the AI service. Please check if your Azure OpenAI configuration is correct.",
-      "It seems there's an issue with the AI service. Please verify your Azure OpenAI credentials are properly set.",
-      "The AI service is temporarily unavailable. Please ensure your Azure OpenAI endpoint and API key are configured correctly.",
+      "I'm currently having trouble connecting to the Azure OpenAI service. There appears to be an authentication issue with the API key or endpoint configuration.",
+      "The AI service is temporarily unavailable due to a connection error. Please verify your Azure OpenAI credentials are correct.",
+      "I'm experiencing connection issues with the AI service. This may be due to incorrect API endpoint or authentication problems.",
     ];
     
     return responses[Math.floor(Math.random() * responses.length)];

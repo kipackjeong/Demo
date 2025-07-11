@@ -107,17 +107,25 @@ async function handleWebSocketMessage(
 
     // Generate agent response with session context
     try {
+      console.log("Starting agent response generation...");
       const response = await agentService.generateResponse(message.content || "", message.sessionId);
+      console.log("Agent response generated, starting stream...");
       
       // Stream the response
       await streamResponse(ws, response, message.sessionId, storage);
+      console.log("Response streaming completed");
     } catch (error) {
       console.error("Error generating agent response:", error);
-      ws.send(JSON.stringify({
-        type: "error",
-        content: "Failed to generate response",
-        sessionId: message.sessionId,
-      }));
+      console.error("Error stack:", error.stack);
+      
+      // Send error response
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: "error",
+          content: "Failed to generate response: " + error.message,
+          sessionId: message.sessionId,
+        }));
+      }
     }
   }
 }
