@@ -1,0 +1,126 @@
+# **📄 Project Requirements **
+
+**Project Name**: AI Agent Chatbot Framework
+
+---
+
+## **1. 🎯 Objective**
+
+Establish a modular, production-ready chatbot architecture that enables **bidirectional**, **streaming** communication between a React-based frontend and an AI agent system powered by **AutoGen** on a FastAPI backend.
+
+This project is intended as a **framework only**, with no business context or application-specific logic at this stage.
+
+---
+
+## **2. 🧱 System Architecture Overview**
+
+### **🔀 High-Level Architecture**
+
+```
+User (React App)
+   ⇅ WebSocket
+Backend (FastAPI)
+   ⇅ AutoGen Agents
+```
+
+### **Components:**
+
+| **Component** | **Tech Stack** | **Role** |
+| --- | --- | --- |
+| Frontend | React + TypeScript | UI/UX, sends and receives chat messages via WebSocket |
+| Backend API | FastAPI + WebSocket | Handles real-time messaging and orchestrates agent responses |
+| Agent Runtime | AutoGen (Python) | Manages intelligent multi-agent conversations |
+| Deployment | Docker (optional) | Dev/staging environments, scalability |
+
+---
+
+## **3. ⚙️ Functional Requirements**
+
+### **3.1 Frontend (React)**
+
+- Render a simple chat interface (user input + streamed response area)
+- Establish WebSocket connection on user action
+- Display messages in a streaming fashion (append as tokens arrive)
+- Handle connection failures and retries gracefully
+- Allow bidirectional turn-taking
+
+### **3.2 Backend (FastAPI)**
+
+- WebSocket endpoint: /ws/chat
+- Accept incoming user messages and route them to AutoGen agent logic
+- Stream agent replies back to frontend over WebSocket
+- Handle agent-to-user negotiation (e.g., ask for clarification mid-task)
+- Support session/state tracking (stubbed for now)
+
+### **3.3 Agent Layer (AutoGen)**
+
+- Setup AutoGen UserProxyAgent and AssistantAgent instances
+- Allow injection of user messages as external inputs to the proxy agent
+- Yield response tokens or text incrementally for WebSocket streaming
+- Modular design to support future RAG/tool use
+
+---
+
+## **4. 🧪 Non-Functional Requirements**
+
+| **Category** | **Requirement** |
+| --- | --- |
+| **Scalability** | Must support multiple concurrent chat sessions |
+| **Performance** | First token response within 1s (mocked), full response under 5s |
+| **Maintainability** | Clean codebase with modular backend folders: agents/, routes/, core/ |
+| **Security** | WebSocket should be behind HTTPS in production; no secrets exposed to frontend |
+| **Testability** | Include unit test stubs for WebSocket routes and agent handlers |
+
+---
+
+## **5. 🗂️ Directory Layout**
+
+```
+/chatbot-framework/
+│
+├── frontend/
+│   ├── src/
+│   │   └── Chat.tsx
+│   └── ...
+│
+├── backend/
+│   ├── app/
+│   │   ├── agents/          # AutoGen setup
+│   │   ├── core/            # Message routing
+│   │   ├── routes/          # WebSocket handlers
+│   │   └── main.py
+│   └── requirements.txt
+│
+└── README.md
+```
+
+---
+
+## **6. 📦 Dependencies**
+
+### **Backend (FastAPI)**
+
+```
+fastapi
+uvicorn
+autogen
+```
+
+### **Frontend (React)**
+
+```
+"dependencies": {
+  "react": "^18.x",
+  "typescript": "^5.x"
+}
+```
+
+---
+
+## **7. 🔄 Future Enhancements**
+
+- Session memory storage (Redis or in-memory map)
+- Multi-agent orchestration with GroupChat
+- Agent tools integration (e.g., code executor, browser)
+- Authentication and role-based conversations
+- Persistence of chat history and logging

@@ -1,0 +1,94 @@
+
+# **🎨 Frontend Design Requirements**
+
+1. 🧭 Design Philosophy
+	•	Minimalism: No visual clutter, generous whitespace, and clean layout
+	•	Modernity: Use of smooth animations, soft borders, and adaptive UI
+	•	Focus on Content: Conversation is front-and-center
+	•	Emotional Clarity: Subtle visual cues for typing, error, and system state
+	•	Responsiveness: Mobile and desktop-friendly with no feature drop
+
+2. 🎯 Functional UI Elements
+
+2.1 📥 Message Input Area
+	•	Text input (multi-line)
+	•	Submit via keyboard (Enter) or button
+	•	Input disabled when waiting for response
+	•	Placeholder: “Ask me anything…”
+	•	Optional: Auto-resize height (up to 3 lines)
+
+2.2 📤 Chat Display
+	•	Left-aligned assistant messages with icon/avatar
+	•	Right-aligned user messages
+	•	Live typing indicator (“…” or pulsing dots) during agent response
+	•	Real-time streaming of agent responses (token by token)
+	•	Each message has time metadata (optional, subtle)
+
+2.3 🔁 Conversation Control (Top Bar or Footer)
+	•	“New Chat” button (clears messages)
+	•	Optional: Dark/light mode toggle
+	•	Optional: Regenerate button (on last reply)
+
+3. 🧩 Layout & Responsiveness
+
+Viewport	Layout Behavior
+Desktop	Sidebar optional, full-width content view
+Tablet	Input stays pinned to bottom
+Mobile	Full-height chat view with sticky input, touch-optimized
+
+4. 🎨 Visual & UI Style
+
+4.1 Typography
+	•	Clean sans-serif (e.g., Inter, Roboto, SF UI)
+	•	Font size:
+	•	Messages: 15–16px
+	•	Input: 16px+
+	•	Headings/labels: 14–15px, bold
+
+4.2 Colors (Light Theme Base)
+
+Element	Color
+Background	#ffffff or #f7f8fa
+User bubbles	#d1e8ff (light blue)
+Agent bubbles	#f0f0f0 (neutral gray)
+Text	#1a1a1a
+Input border	#ccc → #666 (on focus)
+Typing indicator	Faint pulsing gray dots
+
+🎨 Optional: Support for prefers-color-scheme to auto-detect dark mode.
+
+5. 🔄 Interactions & UX
+	•	Enter submits, Shift+Enter for newline
+	•	Streaming messages animate smoothly (typewriter effect or character roll)
+	•	Typing indicator fades in/out
+	•	Error state shows toast/snackbar ("Agent disconnected")
+	•	Smooth scroll to latest message
+	•	Focus auto-scroll on input field after submitting
+
+6. 🛠️ Component Architecture
+
+Suggested File Tree
+
+/src/
+│
+├── components/
+│   ├── ChatWindow.tsx         # Chat bubble logic
+│   ├── MessageInput.tsx       # Bottom input + send
+│   ├── TypingIndicator.tsx    # Pulsing dot effect
+│   └── HeaderBar.tsx          # Controls (New Chat, Theme)
+│
+├── hooks/
+│   └── useWebSocket.ts        # Connection logic
+│
+├── styles/
+│   └── theme.ts               # Color and font configs
+
+
+7. 🧪 Design QA Checklist
+
+Category	Criteria
+Layout	Proper alignment on mobile, tablet, desktop
+Streaming UX	Messages appear as chunks/tokens, not full drops
+Focus Handling	Input auto-focus and re-focus properly
+Responsiveness	Chat input never overlaps content
+Dark Mode (opt)	Entire UI adapts without layout break

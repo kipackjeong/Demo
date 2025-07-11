@@ -1,0 +1,124 @@
+📄 Backend Requirements Document
+
+1. 🎯 Objective
+
+Develop a backend framework that enables real-time, multi-turn conversations between a user and LLM agents, orchestrated using LangGraph, and delivered via a WebSocket stream to the frontend. The system must support memory, retrieval, tool access, and token-wise response delivery.
+
+2. 🧠 System Components
+
+2.1 FastAPI Server
+	•	Accepts WebSocket connections at /ws/chat
+	•	Routes user messages to LangGraph
+	•	Streams assistant responses back over the same socket
+
+2.2 LangGraph Workflow
+	•	Directed, stateful agent flow
+	•	Each node is:
+	•	A single LangChain Runnable (RunnableSequence, RunnableLambda, etc.)
+	•	May read/write from shared memory
+	•	Supports branching, looping, and post-processing logic
+
+2.3 Qdrant Vector Store
+	•	Stores document embeddings
+	•	Used via retriever node for context-augmented response
+	•	Supports metadata filtering and scoring
+
+3. ⚙️ Functional Requirements
+
+3.1 WebSocket Endpoint
+	•	Route: GET /ws/chat
+	•	Accepts prompt, session_id, and optional metadata
+	•	Maintains open stream during message generation
+	•	Emits {"role": "assistant", "content": "<token>"} JSON chunks
+	•	Emits {"type": "done"} on generation complete
+
+3.2 LangGraph Agent Workflow
+	•	LLM node: Generates assistant reply using ChatOpenAI
+	•	Retriever node: Looks up documents from Qdrant (based on user input)
+	•	Decision node: Determines if loop or stop
+	•	Shared memory:
+	•	input_history: For context preservation
+	•	retrieved_docs: Optional, for transparency
+	•	Modular: easy to add tool usage, validation, or summarization nodes
+
+3.3 Streaming Integration
+	•	Use AsyncIteratorCallbackHandler to receive LLM output chunks
+	•	Push each token/partial string back to frontend over WebSocket
+	•	Handle early disconnect, cancellation (e.g., /abort event)
+
+4. 📂 Backend Folder Structure
+
+/backend/app/
+│
+├── routes/
+│   └── websocket.py         # WebSocket endpoint
+│
+├── graph/
+│   └── chatbot_graph.py     # LangGraph workflow builder
+│
+├── chains/
+│   ├── retriever.py         # Qdrant retriever setup
+│   └── prompts.py           # Prompt templates (system/user)
+│
+├── utils/
+│   └── streaming.py         # LangChain token streaming handler
+│
+└── main.py                  # FastAPI app entry
+
+
+5. 🔐 Security & Resilience
+
+Concern	Handling Strategy
+WebSocket drops	Catch and terminate LangGraph run cleanly
+Rate limiting	Optional (per IP or token)
+Secrets management	Use os.environ or config loader (e.g., pydantic.BaseSettings)
+Unsafe prompts	Add guardrails node (future)
+
+
+⸻
+
+6. 🔄 Event Protocol over WebSocket
+
+Inbound:
+
+{
+  "type": "user_message",
+  "content": "Tell me about GPT-4",
+  "session_id": "abc123"
+}
+
+Outbound (token stream):
+
+{ "role": "assistant", "content": "Sure," }
+{ "role": "assistant", "content": " GPT-4 is an advanced..." }
+...
+{ "type": "done" }
+
+
+7. 🧪 Dev and Testing Guidelines
+
+Area	Recommendation
+LLM mocking	Use dummy RunnableLambda in dev
+Graph testing	Simulate node execution with fixed input
+Socket testing	Use test client (e.g. websocat, socket.io, Cypress)
+Timeout recovery	Set max generation time + abort logic
+
+
+8. 🧱 Base Dependencies (requirements.txt)
+
+fastapi
+uvicorn
+langchain
+langgraph
+qdrant-client
+openai
+tiktoken
+websockets
+
+
+9. 🚀 Future Enhancements
+	•	Multiple agent personas (e.g. Assistant, Planner, Critic)
+	•	Tool-use node (code interpreter, browser, calculator)
+	•	Session transcript logging (e.g. to SQLite or Supabase)
+	•	Prompt adaptation based on user role or history
+	•	GroupChat-style agent graph inside LangGraph
