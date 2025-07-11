@@ -88,9 +88,9 @@ async function handleWebSocketMessage(
       sessionId: message.sessionId,
     }));
 
-    // Generate agent response
+    // Generate agent response with session context
     try {
-      const response = await agentService.generateResponse(message.content || "");
+      const response = await agentService.generateResponse(message.content || "", message.sessionId);
       
       // Stream the response
       await streamResponse(ws, response, message.sessionId, storage);

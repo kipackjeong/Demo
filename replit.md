@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is a modular, production-ready AI agent chatbot framework built with React frontend and Node.js backend. The system enables real-time, bidirectional streaming communication between users and AI agents through WebSocket connections. The framework is designed to be extensible and can be adapted for various AI agent implementations.
+This is a production-ready AI agent chatbot framework built with React frontend and Node.js backend, now powered by Azure OpenAI through LangChain. The system enables real-time, bidirectional streaming communication between users and AI agents through WebSocket connections. The framework provides full conversation history, context awareness, and graceful fallback handling.
 
 ## User Preferences
 
@@ -38,10 +38,11 @@ Preferred communication style: Simple, everyday language.
 - **Session Management**: Persistent chat sessions with unique identifiers
 
 ### AI Agent Integration
-- **Agent Service**: Modular service for AI response generation
-- **Response Selection**: Keyword-based response matching (extensible to LLM integration)
-- **Streaming Response**: Character-by-character response delivery
-- **Context Awareness**: Session-based conversation context
+- **LangChain Integration**: Full Azure OpenAI integration with LangChain framework
+- **Azure OpenAI Service**: Production-ready AI responses using Azure OpenAI GPT models
+- **Conversation History**: Per-session conversation context and memory management
+- **Streaming Response**: Word-by-word response delivery for natural interaction
+- **Fallback Handling**: Graceful degradation when AI service is unavailable
 
 ### User Interface
 - **Chat Interface**: Clean, modern chat UI with message bubbles
