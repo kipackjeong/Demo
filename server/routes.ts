@@ -7,15 +7,14 @@ import { setupWebSocketServer } from "./services/websocket";
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   
-  // Add middleware to handle WebSocket upgrade requests
-  app.get("/chat-ws", (req, res) => {
-    res.status(426).send("Upgrade Required - WebSocket endpoint");
-  });
+  // Remove the HTTP handler for WebSocket path - let WebSocket handle it directly
   
-  // Setup WebSocket server
+  // Setup WebSocket server with more explicit configuration
   const wss = new WebSocketServer({ 
     server: httpServer, 
-    path: "/chat-ws" 
+    path: "/chat-ws",
+    perMessageDeflate: false,
+    clientTracking: true
   });
   
   console.log("WebSocket server initialized on path /chat-ws");

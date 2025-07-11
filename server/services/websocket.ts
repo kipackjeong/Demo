@@ -43,6 +43,9 @@ export function setupWebSocketServer(wss: WebSocketServer, storage: IStorage) {
 
     ws.on("close", (code, reason) => {
       console.log("WebSocket connection closed:", code, reason.toString());
+      if (code === 1001) {
+        console.log("Connection closed unexpectedly - possible client issue");
+      }
     });
 
     ws.on("error", (error) => {
@@ -60,6 +63,16 @@ export function setupWebSocketServer(wss: WebSocketServer, storage: IStorage) {
 
   wss.on("error", (error) => {
     console.error("WebSocket server error:", error);
+  });
+
+  // Add server-level handling for upgrade requests
+  wss.on("headers", (headers, req) => {
+    console.log("WebSocket upgrade headers being sent to client");
+  });
+
+  // Add server listening event
+  wss.on("listening", () => {
+    console.log("WebSocket server is listening and ready to accept connections");
   });
 }
 

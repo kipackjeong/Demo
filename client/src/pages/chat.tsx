@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { HeaderBar } from "@/components/HeaderBar";
 import { ChatWindow } from "@/components/ChatWindow";
 import { MessageInput } from "@/components/MessageInput";
-import { useMinimalWebSocket } from "@/hooks/useMinimalWebSocket";
+import { useSimpleWebSocket } from "@/hooks/useSimpleWebSocket";
 import { useTheme } from "@/hooks/useTheme";
 import { useToast } from "@/hooks/use-toast";
 import type { Message } from "@shared/schema";
@@ -17,57 +17,61 @@ export default function ChatPage() {
   const { toast } = useToast();
   const { theme, toggleTheme } = useTheme();
   
+  const handleMessage = (data: any) => {
+    if (data.type === "agent_response") {
+      // Handle streaming response
+      setMessages(prev => {
+        const existingIndex = prev.findIndex(
+          m => m.sessionId === data.sessionId && m.role === "assistant" && m.id === -1
+        );
+        
+        if (existingIndex >= 0) {
+          // Update existing streaming message
+          const updated = [...prev];
+          updated[existingIndex] = {
+            ...updated[existingIndex],
+            content: updated[existingIndex].content + (data.content || "")
+          };
+          return updated;
+        } else {
+          // Create new streaming message
+          return [...prev, {
+            id: -1, // Temporary ID for streaming
+            sessionId: data.sessionId,
+            role: "assistant" as const,
+            content: data.content || "",
+            timestamp: new Date(),
+          }];
+        }
+      });
+    } else if (data.type === "typing") {
+      setIsTyping(true);
+    } else if (data.type === "done") {
+      setIsTyping(false);
+      // Convert streaming message to final message
+      setMessages(prev => 
+        prev.map(m => 
+          m.id === -1 ? { ...m, id: Date.now() } : m
+        )
+      );
+    } else if (data.type === "error") {
+      setIsTyping(false);
+      toast({
+        title: "Error",
+        description: data.content || "An error occurred",
+        variant: "destructive"
+      });
+    }
+  };
+
   const { 
-    status: connectionStatus, 
+    connectionStatus, 
     sendMessage: sendWebSocketMessage, 
     error 
-  } = useMinimalWebSocket("/chat-ws", (data) => {
-      if (data.type === "agent_response") {
-        // Handle streaming response
-        setMessages(prev => {
-          const existingIndex = prev.findIndex(
-            m => m.sessionId === data.sessionId && m.role === "assistant" && m.id === -1
-          );
-          
-          if (existingIndex >= 0) {
-            // Update existing streaming message
-            const updated = [...prev];
-            updated[existingIndex] = {
-              ...updated[existingIndex],
-              content: updated[existingIndex].content + (data.content || "")
-            };
-            return updated;
-          } else {
-            // Create new streaming message
-            return [...prev, {
-              id: -1, // Temporary ID for streaming
-              sessionId: data.sessionId,
-              role: "assistant" as const,
-              content: data.content || "",
-              timestamp: new Date(),
-            }];
-          }
-        });
-      } else if (data.type === "typing") {
-        setIsTyping(true);
-      } else if (data.type === "done") {
-        setIsTyping(false);
-        // Convert streaming message to final message
-        setMessages(prev => 
-          prev.map(m => 
-            m.id === -1 ? { ...m, id: Date.now() } : m
-          )
-        );
-      } else if (data.type === "error") {
-        setIsTyping(false);
-        toast({
-          title: "Error",
-          description: data.content || "An error occurred",
-          variant: "destructive"
-        });
-      }
-    }
-  );
+  } = useSimpleWebSocket({ 
+    url: "/chat-ws", 
+    onMessage: handleMessage
+  });
 
   useEffect(() => {
     if (error) {
