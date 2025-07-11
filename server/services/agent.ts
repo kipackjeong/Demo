@@ -1,5 +1,6 @@
 import { AzureChatOpenAI } from "@langchain/azure-openai";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
+import { DefaultAzureCredential } from "@azure/identity";
 
 export class AgentService {
   private azureOpenAI: AzureChatOpenAI | null = null;
@@ -10,7 +11,6 @@ export class AgentService {
   }
 
   private initializeAzureOpenAI() {
-    const apiKey = process.env.AZURE_OPENAI_API_KEY;
     const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
     const deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT_NAME;
     const apiVersion = process.env.AZURE_OPENAI_API_VERSION || "2024-02-01";
@@ -18,29 +18,31 @@ export class AgentService {
     console.log("Azure OpenAI Configuration:");
     console.log("- Endpoint:", endpoint ? `${endpoint.substring(0, 30)}...` : "Not set");
     console.log("- Deployment:", deploymentName || "Not set");
-    console.log("- API Key:", apiKey ? "Set" : "Not set");
+    console.log("- Authentication: DefaultAzureCredential");
     console.log("- API Version:", apiVersion);
 
-    if (!apiKey || !endpoint || !deploymentName) {
+    if (!endpoint || !deploymentName) {
       console.log("Azure OpenAI configuration incomplete. Using fallback responses.");
       console.log("Missing:", 
-        (!apiKey ? "API_KEY " : "") + 
         (!endpoint ? "ENDPOINT " : "") + 
         (!deploymentName ? "DEPLOYMENT_NAME " : ""));
       return;
     }
 
     try {
+      // Use DefaultAzureCredential for authentication
+      const credential = new DefaultAzureCredential();
+      
       this.azureOpenAI = new AzureChatOpenAI({
-        azureOpenAIApiKey: apiKey,
+        azureADTokenProvider: () => credential.getToken("https://cognitiveservices.azure.com/.default"),
         azureOpenAIEndpoint: endpoint,
         azureOpenAIApiDeploymentName: deploymentName,
         azureOpenAIApiVersion: apiVersion,
         temperature: 0.7,
         maxTokens: 1000,
       });
-      console.log("Azure OpenAI initialized successfully");
-      console.log("Note: Actual API connection will be tested when first request is made");
+      console.log("Azure OpenAI initialized successfully with DefaultAzureCredential");
+      console.log("Note: Using Azure AD authentication instead of API key");
     } catch (error) {
       console.error("Failed to initialize Azure OpenAI:", error);
     }

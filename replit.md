@@ -40,6 +40,7 @@ Preferred communication style: Simple, everyday language.
 ### AI Agent Integration
 - **LangChain Integration**: Full Azure OpenAI integration with LangChain framework
 - **Azure OpenAI Service**: Production-ready AI responses using Azure OpenAI GPT models
+- **Azure AD Authentication**: Uses DefaultAzureCredential for secure authentication
 - **Conversation History**: Per-session conversation context and memory management
 - **Streaming Response**: Word-by-word response delivery for natural interaction
 - **Fallback Handling**: Graceful degradation when AI service is unavailable
