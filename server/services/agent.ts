@@ -1,6 +1,7 @@
 import { AzureChatOpenAI } from "@langchain/azure-openai";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { DefaultAzureCredential } from "@azure/identity";
+import { testDirectAzureOpenAI } from "./directAzureTest.js";
 
 export class AgentService {
   private azureOpenAI: AzureChatOpenAI | null = null;
@@ -8,12 +9,24 @@ export class AgentService {
 
   constructor() {
     this.initializeAzureOpenAI();
+    // Test direct connection
+    this.testDirectConnection();
+  }
+
+  private async testDirectConnection() {
+    console.log("Testing direct Azure OpenAI connection...");
+    const result = await testDirectAzureOpenAI();
+    if (result) {
+      console.log("✓ Direct connection test passed");
+    } else {
+      console.log("✗ Direct connection test failed");
+    }
   }
 
   private initializeAzureOpenAI() {
     const apiKey = process.env.AZURE_OPENAI_API_KEY;
     const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
-    const deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT_NAME;
+    const deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT_NAME?.trim();
     const apiVersion = process.env.AZURE_OPENAI_API_VERSION || "2024-02-01";
 
     console.log("Azure OpenAI Configuration:");
@@ -41,6 +54,11 @@ export class AgentService {
           azureOpenAIApiVersion: apiVersion,
           temperature: 0.7,
           maxTokens: 1000,
+          timeout: 10000, // 10 second timeout
+          // Additional configuration for better compatibility
+          maxRetries: 1,
+          // Force specific model configuration
+          model: deploymentName,
         });
         console.log("Azure OpenAI initialized successfully with API key");
       } else {
@@ -101,12 +119,19 @@ export class AgentService {
       ];
 
       console.log(`Sending ${messages.length} messages to Azure OpenAI`);
+      console.log("Request details:");
+      console.log("- Messages:", messages.length);
+      console.log("- First message type:", messages[0]?.constructor?.name);
+      console.log("- Model/deployment:", this.azureOpenAI.azureOpenAIApiDeploymentName);
       
       // Generate response with timeout
+      console.log("Making Azure OpenAI request...");
+      const startTime = Date.now();
       const response = await Promise.race([
         this.azureOpenAI.invoke(messages),
-        new Promise((_, reject) => setTimeout(() => reject(new Error("Request timeout")), 30000))
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Request timeout after 15 seconds")), 15000))
       ]);
+      console.log(`Request completed in ${Date.now() - startTime}ms`);
       
       const aiResponse = response.content as string;
       console.log(`Received response from Azure OpenAI: "${aiResponse.substring(0, 100)}..."`);
