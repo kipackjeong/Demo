@@ -195,20 +195,103 @@ Respond with ONLY the agent decision (calendar, tasks, both, or direct_response)
   private async calendarAgent(state: LifeManagerState): Promise<Partial<LifeManagerState>> {
     console.log("Calendar Agent processing request:", state.userMessage);
     
-    // TODO: Implement Google Calendar API integration
-    // For now, return a placeholder response indicating calendar functionality
+    // Rich mock calendar data for testing
     const calendarData = [
       {
-        title: "Meeting with Team",
+        id: "cal_001",
+        title: "Team Sprint Planning",
         date: "2025-07-12",
-        time: "10:00 AM",
-        description: "Weekly team standup meeting"
+        time: "09:00 AM",
+        endTime: "11:00 AM",
+        description: "Planning session for Q3 sprint goals and backlog prioritization",
+        location: "Conference Room A",
+        attendees: ["john@company.com", "sarah@company.com", "mike@company.com"],
+        status: "confirmed",
+        priority: "high"
       },
       {
-        title: "Doctor Appointment",
+        id: "cal_002",
+        title: "Doctor Appointment - Annual Checkup",
         date: "2025-07-13",
         time: "2:00 PM",
-        description: "Annual checkup"
+        endTime: "3:00 PM",
+        description: "Annual physical examination with Dr. Smith",
+        location: "Medical Center, Suite 204",
+        attendees: ["patient@email.com"],
+        status: "confirmed",
+        priority: "medium"
+      },
+      {
+        id: "cal_003",
+        title: "Client Presentation - Q3 Review",
+        date: "2025-07-14",
+        time: "3:30 PM",
+        endTime: "5:00 PM",
+        description: "Quarterly business review with ABC Corp client",
+        location: "Virtual Meeting (Zoom)",
+        attendees: ["client@abccorp.com", "account@company.com"],
+        status: "confirmed",
+        priority: "high"
+      },
+      {
+        id: "cal_004",
+        title: "Lunch with Mom",
+        date: "2025-07-15",
+        time: "12:30 PM",
+        endTime: "2:00 PM",
+        description: "Monthly lunch catch-up",
+        location: "Italian Bistro downtown",
+        attendees: ["mom@family.com"],
+        status: "confirmed",
+        priority: "medium"
+      },
+      {
+        id: "cal_005",
+        title: "Dentist Appointment",
+        date: "2025-07-16",
+        time: "10:00 AM",
+        endTime: "11:00 AM",
+        description: "Routine dental cleaning",
+        location: "Smile Dental Clinic",
+        attendees: ["patient@email.com"],
+        status: "confirmed",
+        priority: "low"
+      },
+      {
+        id: "cal_006",
+        title: "Project Demo - Marketing Team",
+        date: "2025-07-17",
+        time: "4:00 PM",
+        endTime: "5:30 PM",
+        description: "Demo new analytics dashboard features",
+        location: "Meeting Room B",
+        attendees: ["marketing@company.com", "dev@company.com"],
+        status: "tentative",
+        priority: "medium"
+      },
+      {
+        id: "cal_007",
+        title: "Weekend Hiking Trip",
+        date: "2025-07-19",
+        time: "8:00 AM",
+        endTime: "6:00 PM",
+        description: "Day hike at Blue Ridge Mountains with friends",
+        location: "Blue Ridge Trail Head",
+        attendees: ["friends@group.com"],
+        status: "confirmed",
+        priority: "low"
+      },
+      {
+        id: "cal_008",
+        title: "1:1 with Manager",
+        date: "2025-07-21",
+        time: "2:00 PM",
+        endTime: "3:00 PM",
+        description: "Monthly check-in and performance review",
+        location: "Manager's Office",
+        attendees: ["manager@company.com"],
+        status: "confirmed",
+        priority: "high"
       }
     ];
 
@@ -221,15 +304,17 @@ Respond with ONLY the agent decision (calendar, tasks, both, or direct_response)
 
 The user asked: "${state.userMessage}"
 
-Based on the user's request, I would normally:
-1. Connect to Google Calendar API to retrieve/modify calendar data
-2. Parse the user's intent (view schedule, add event, reschedule, etc.)
-3. Perform the requested calendar operation
-
-Current calendar data (placeholder):
+You have access to the following calendar data:
 ${JSON.stringify(calendarData, null, 2)}
 
-Please provide a helpful response about calendar management. Note that Google Calendar API integration is not yet implemented, so explain what would be done when the integration is complete.`;
+Based on the user's request, analyze the calendar data and provide a helpful response. You can:
+1. Show upcoming events and appointments
+2. Identify scheduling conflicts
+3. Suggest optimal meeting times
+4. Provide calendar summaries and insights
+5. Help with event planning and scheduling
+
+Please provide a comprehensive response using the actual calendar data. Be specific about dates, times, and event details. Format your response in a clear, organized manner.`;
 
         const messages = [new SystemMessage(calendarPrompt)];
         const aiResponse = await this.azureOpenAI.invoke(messages);
@@ -251,26 +336,128 @@ Please provide a helpful response about calendar management. Note that Google Ca
   private async tasksAgent(state: LifeManagerState): Promise<Partial<LifeManagerState>> {
     console.log("Tasks Agent processing request:", state.userMessage);
     
-    // TODO: Implement Google Tasks API integration
-    // For now, return a placeholder response indicating tasks functionality
+    // Rich mock tasks data for testing
     const tasksData = [
       {
-        title: "Complete project proposal",
+        id: "task_001",
+        title: "Complete Q3 Project Proposal",
+        description: "Finalize the project proposal document for Q3 initiatives including budget analysis and timeline",
         priority: "high",
         dueDate: "2025-07-15",
-        completed: false
+        completed: false,
+        category: "work",
+        estimatedTime: "4 hours",
+        tags: ["project", "proposal", "Q3"],
+        createdDate: "2025-07-01"
       },
       {
-        title: "Buy groceries",
+        id: "task_002",
+        title: "Buy Groceries for Week",
+        description: "Weekly grocery shopping: milk, bread, eggs, vegetables, fruits, chicken",
         priority: "medium",
         dueDate: "2025-07-12",
-        completed: false
+        completed: false,
+        category: "personal",
+        estimatedTime: "1.5 hours",
+        tags: ["shopping", "food", "weekly"],
+        createdDate: "2025-07-10"
       },
       {
-        title: "Call dentist",
+        id: "task_003",
+        title: "Schedule Annual Physical Exam",
+        description: "Call Dr. Smith's office to schedule annual physical examination",
+        priority: "low",
+        dueDate: "2025-07-20",
+        completed: true,
+        category: "health",
+        estimatedTime: "15 minutes",
+        tags: ["health", "appointment", "annual"],
+        createdDate: "2025-07-05",
+        completedDate: "2025-07-11"
+      },
+      {
+        id: "task_004",
+        title: "Prepare Marketing Dashboard Demo",
+        description: "Create slides and demo script for marketing team presentation",
+        priority: "high",
+        dueDate: "2025-07-17",
+        completed: false,
+        category: "work",
+        estimatedTime: "3 hours",
+        tags: ["presentation", "marketing", "demo"],
+        createdDate: "2025-07-08"
+      },
+      {
+        id: "task_005",
+        title: "Research Weekend Hiking Gear",
+        description: "Look up best hiking boots and backpack for Blue Ridge trip",
+        priority: "low",
+        dueDate: "2025-07-18",
+        completed: false,
+        category: "personal",
+        estimatedTime: "1 hour",
+        tags: ["hiking", "gear", "research"],
+        createdDate: "2025-07-09"
+      },
+      {
+        id: "task_006",
+        title: "Update Resume with Recent Projects",
+        description: "Add Q2 accomplishments and recent project outcomes to resume",
+        priority: "medium",
+        dueDate: "2025-07-25",
+        completed: false,
+        category: "career",
+        estimatedTime: "2 hours",
+        tags: ["resume", "career", "projects"],
+        createdDate: "2025-07-03"
+      },
+      {
+        id: "task_007",
+        title: "Plan Mom's Birthday Celebration",
+        description: "Organize dinner reservation and gift for mom's birthday next month",
+        priority: "medium",
+        dueDate: "2025-07-30",
+        completed: false,
+        category: "personal",
+        estimatedTime: "2 hours",
+        tags: ["birthday", "family", "planning"],
+        createdDate: "2025-07-06"
+      },
+      {
+        id: "task_008",
+        title: "Submit Expense Reports",
+        description: "Process and submit Q2 business expense reports to accounting",
+        priority: "high",
+        dueDate: "2025-07-14",
+        completed: false,
+        category: "work",
+        estimatedTime: "1 hour",
+        tags: ["expenses", "reports", "accounting"],
+        createdDate: "2025-07-07"
+      },
+      {
+        id: "task_009",
+        title: "Clean and Organize Home Office",
+        description: "Deep clean desk area and organize filing system",
         priority: "low",
         dueDate: null,
-        completed: true
+        completed: false,
+        category: "personal",
+        estimatedTime: "3 hours",
+        tags: ["cleaning", "organization", "office"],
+        createdDate: "2025-07-02"
+      },
+      {
+        id: "task_010",
+        title: "Review and Sign Insurance Documents",
+        description: "Review updated health insurance policy and sign renewal forms",
+        priority: "medium",
+        dueDate: "2025-07-22",
+        completed: false,
+        category: "admin",
+        estimatedTime: "45 minutes",
+        tags: ["insurance", "documents", "renewal"],
+        createdDate: "2025-07-04"
       }
     ];
 
@@ -283,17 +470,20 @@ Please provide a helpful response about calendar management. Note that Google Ca
 
 The user asked: "${state.userMessage}"
 
-Based on the user's request, I would normally:
-1. Connect to Google Tasks API to retrieve/modify task data
-2. Parse the user's intent (view tasks, add task, mark complete, etc.)
-3. Perform the requested task operation
-
-Current tasks data (placeholder):
+You have access to the following tasks data:
 ${JSON.stringify(tasksData, null, 2)}
 
 Calendar context from previous agent: ${state.context?.calendarProcessed ? "Calendar data was processed" : "No calendar data processed"}
 
-Please provide a helpful response about task management. Note that Google Tasks API integration is not yet implemented, so explain what would be done when the integration is complete.`;
+Based on the user's request, analyze the tasks data and provide a helpful response. You can:
+1. Show pending tasks and their priorities
+2. Identify overdue tasks and urgent deadlines
+3. Suggest task prioritization and time management
+4. Provide task summaries by category or priority
+5. Help with task planning and scheduling
+6. Show completed tasks and progress tracking
+
+Please provide a comprehensive response using the actual tasks data. Be specific about task details, due dates, and priorities. Format your response in a clear, organized manner with actionable insights.`;
 
         const messages = [new SystemMessage(tasksPrompt)];
         const aiResponse = await this.azureOpenAI.invoke(messages);
@@ -349,15 +539,44 @@ Please provide a helpful response about task management. Note that Google Tasks 
       }
     }
 
-    // If we have agent responses, combine them
+    // If we have agent responses, combine them intelligently
     const hasCalendarData = state.calendarData && state.calendarData.length > 0;
     const hasTasksData = state.tasksData && state.tasksData.length > 0;
 
     if (hasCalendarData || hasTasksData) {
-      let combinedResponse = state.finalResponse || "Here's what I found:";
+      let combinedResponse = state.finalResponse || "Here's your life management overview:";
       
       if (hasCalendarData && hasTasksData) {
-        combinedResponse += "\n\nI've processed both your calendar and tasks data to give you a comprehensive view of your schedule and commitments.";
+        // Provide intelligent cross-analysis when both calendar and tasks are processed
+        if (!this.azureOpenAI) {
+          combinedResponse += "\n\nI've analyzed both your calendar and tasks to provide a comprehensive view of your schedule and commitments.";
+        } else {
+          try {
+            const analysisPrompt = `You are the Life Manager Finalizer. You have data from both the Calendar Agent and Tasks Agent.
+
+User request: "${state.userMessage}"
+
+Calendar data summary: ${state.calendarData?.length || 0} events
+Tasks data summary: ${state.tasksData?.length || 0} tasks
+
+Previous agent response: "${state.finalResponse}"
+
+Please provide a final, integrated response that:
+1. Combines insights from both calendar and tasks
+2. Identifies potential scheduling conflicts or opportunities
+3. Suggests time management improvements
+4. Provides actionable next steps
+
+Keep the response comprehensive but concise.`;
+
+            const messages = [new SystemMessage(analysisPrompt)];
+            const response = await this.azureOpenAI.invoke(messages);
+            combinedResponse = response.content as string;
+          } catch (error) {
+            console.error("Combined analysis error:", error);
+            combinedResponse += "\n\nI've processed both your calendar and tasks data to give you a comprehensive view of your schedule and commitments.";
+          }
+        }
       }
       
       return { finalResponse: combinedResponse };
