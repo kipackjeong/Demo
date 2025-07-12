@@ -2,15 +2,19 @@ import { AzureChatOpenAI } from "@langchain/azure-openai";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { DefaultAzureCredential } from "@azure/identity";
 import { testDirectAzureOpenAI } from "./directAzureTest.js";
+import { MultiAgentSystem } from "./multiAgent.js";
 
 export class AgentService {
   private azureOpenAI: AzureChatOpenAI | null = null;
   private conversationHistory: Map<string, Array<{ role: string; content: string }>> = new Map();
+  private multiAgentSystem: MultiAgentSystem;
 
   constructor() {
     this.initializeAzureOpenAI();
     // Test direct connection
     this.testDirectConnection();
+    // Initialize multi-agent system
+    this.multiAgentSystem = new MultiAgentSystem();
   }
 
   private async testDirectConnection() {
@@ -93,6 +97,20 @@ export class AgentService {
   async generateResponse(userMessage: string, sessionId: string = "default"): Promise<string> {
     console.log(`Generating response for session ${sessionId}: "${userMessage}"`);
     
+    // Use multi-agent system if available
+    if (this.multiAgentSystem) {
+      try {
+        console.log("Using multi-agent system for response generation");
+        const response = await this.multiAgentSystem.generateResponse(userMessage, sessionId);
+        console.log(`Multi-agent system response: "${response.substring(0, 100)}..."`);
+        return response;
+      } catch (error) {
+        console.error("Multi-agent system error, falling back to single agent:", error);
+        // Fall through to single agent backup
+      }
+    }
+
+    // Fallback to single agent if multi-agent fails
     if (!this.azureOpenAI) {
       console.log("Azure OpenAI not initialized, using fallback");
       return this.getFallbackResponse(userMessage);
@@ -101,7 +119,7 @@ export class AgentService {
     try {
       // Get conversation history for this session
       const history = this.conversationHistory.get(sessionId) || [];
-      console.log(`Session ${sessionId} has ${history.length} messages in history`);
+      console.log(`Single agent: Session ${sessionId} has ${history.length} messages in history`);
       
       // Add user message to history
       history.push({ role: "user", content: userMessage });
@@ -118,23 +136,18 @@ export class AgentService {
         )
       ];
 
-      console.log(`Sending ${messages.length} messages to Azure OpenAI`);
-      console.log("Request details:");
-      console.log("- Messages:", messages.length);
-      console.log("- First message type:", messages[0]?.constructor?.name);
-      console.log("- Model/deployment:", this.azureOpenAI.azureOpenAIApiDeploymentName);
+      console.log(`Single agent: Sending ${messages.length} messages to Azure OpenAI`);
       
       // Generate response with timeout
-      console.log("Making Azure OpenAI request...");
       const startTime = Date.now();
       const response = await Promise.race([
         this.azureOpenAI.invoke(messages),
         new Promise((_, reject) => setTimeout(() => reject(new Error("Request timeout after 15 seconds")), 15000))
       ]);
-      console.log(`Request completed in ${Date.now() - startTime}ms`);
+      console.log(`Single agent: Request completed in ${Date.now() - startTime}ms`);
       
       const aiResponse = response.content as string;
-      console.log(`Received response from Azure OpenAI: "${aiResponse.substring(0, 100)}..."`);
+      console.log(`Single agent response: "${aiResponse.substring(0, 100)}..."`);
 
       // Add AI response to history
       history.push({ role: "assistant", content: aiResponse });
@@ -166,5 +179,18 @@ export class AgentService {
 
   clearConversationHistory(sessionId: string) {
     this.conversationHistory.delete(sessionId);
+    if (this.multiAgentSystem) {
+      this.multiAgentSystem.clearConversationHistory(sessionId);
+    }
+  }
+
+  getSystemStatus(): Record<string, any> {
+    return {
+      singleAgent: {
+        azureOpenAIInitialized: !!this.azureOpenAI,
+        activeSessions: this.conversationHistory.size,
+      },
+      multiAgent: this.multiAgentSystem?.getSystemStatus() || null,
+    };
   }
 }
