@@ -307,14 +307,11 @@ The user asked: "${state.userMessage}"
 You have access to the following calendar data:
 ${JSON.stringify(calendarData, null, 2)}
 
-Based on the user's request, analyze the calendar data and provide a helpful response. You can:
-1. Show upcoming events and appointments
-2. Identify scheduling conflicts
-3. Suggest optimal meeting times
-4. Provide calendar summaries and insights
-5. Help with event planning and scheduling
+CRITICAL: Respond in completely natural, conversational language - NO markdown formatting, NO structured lists, NO headers, NO bullet points, NO bold text, NO asterisks, NO dashes, NO numbered lists. Just speak naturally as if you're having a friendly conversation.
 
-Please provide a comprehensive response using the actual calendar data. Be specific about dates, times, and event details. Format your response in a clear, organized manner.`;
+Based on the user's request, analyze the calendar data and provide a helpful response. You can show upcoming events and appointments, identify scheduling conflicts, suggest optimal meeting times, provide calendar summaries and insights, and help with event planning and scheduling.
+
+Please provide a comprehensive response using the actual calendar data. Be specific about dates, times, and event details but speak conversationally.`;
 
         const messages = [new SystemMessage(calendarPrompt)];
         const aiResponse = await this.azureOpenAI.invoke(messages);
@@ -475,15 +472,11 @@ ${JSON.stringify(tasksData, null, 2)}
 
 Calendar context from previous agent: ${state.context?.calendarProcessed ? "Calendar data was processed" : "No calendar data processed"}
 
-Based on the user's request, analyze the tasks data and provide a helpful response. You can:
-1. Show pending tasks and their priorities
-2. Identify overdue tasks and urgent deadlines
-3. Suggest task prioritization and time management
-4. Provide task summaries by category or priority
-5. Help with task planning and scheduling
-6. Show completed tasks and progress tracking
+CRITICAL: Respond in completely natural, conversational language - NO markdown formatting, NO structured lists, NO headers, NO bullet points, NO bold text, NO asterisks, NO dashes, NO numbered lists. Just speak naturally as if you're having a friendly conversation.
 
-Please provide a comprehensive response using the actual tasks data. Be specific about task details, due dates, and priorities. Format your response in a clear, organized manner with actionable insights.`;
+Based on the user's request, analyze the tasks data and provide a helpful response. You can show pending tasks and their priorities, identify overdue tasks and urgent deadlines, suggest task prioritization and time management, provide task summaries by category or priority, help with task planning and scheduling, and show completed tasks and progress tracking.
+
+Please provide a comprehensive response using the actual tasks data. Be specific about task details, due dates, and priorities but speak conversationally with actionable insights.`;
 
         const messages = [new SystemMessage(tasksPrompt)];
         const aiResponse = await this.azureOpenAI.invoke(messages);
@@ -515,6 +508,8 @@ Please provide a comprehensive response using the actual tasks data. Be specific
         const messages = [
           new SystemMessage(`You are a Life Manager assistant that helps users manage their schedules and tasks. 
           You are friendly, organized, and proactive about helping users stay on top of their commitments.
+          
+          IMPORTANT: Respond in completely natural, conversational language - NO markdown formatting, NO structured lists, NO headers, NO bullet points, NO bold text, NO asterisks, NO dashes, NO numbered lists. Just speak naturally as if you're having a friendly conversation.
           
           If the user is asking general questions about life management, provide helpful tips and guidance.
           If they're greeting you, be warm and explain how you can help with calendar and task management.`),
@@ -561,13 +556,11 @@ Tasks data summary: ${state.tasksData?.length || 0} tasks
 
 Previous agent response: "${state.finalResponse}"
 
-Please provide a final, integrated response that:
-1. Combines insights from both calendar and tasks
-2. Identifies potential scheduling conflicts or opportunities
-3. Suggests time management improvements
-4. Provides actionable next steps
+CRITICAL: Respond in completely natural, conversational language - NO markdown formatting, NO structured lists, NO headers, NO bullet points, NO bold text, NO asterisks, NO dashes, NO numbered lists. Just speak naturally as if you're having a friendly conversation.
 
-Keep the response comprehensive but concise.`;
+Please provide a final, integrated response that combines insights from both calendar and tasks, identifies potential scheduling conflicts or opportunities, suggests time management improvements, and provides actionable next steps.
+
+Keep the response comprehensive but concise and conversational.`;
 
             const messages = [new SystemMessage(analysisPrompt)];
             const response = await this.azureOpenAI.invoke(messages);

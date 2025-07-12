@@ -3,7 +3,7 @@ import {
   chatSessions, 
   messages,
   type User, 
-  type InsertUser,
+  type UpsertUser,
   type ChatSession,
   type InsertChatSession,
   type Message,
@@ -11,9 +11,9 @@ import {
 } from "@shared/schema";
 
 export interface IStorage {
-  getUser(id: number): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  // User operations - mandatory for Replit Auth
+  getUser(id: string): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
   
   getChatSession(sessionId: string): Promise<ChatSession | undefined>;
   createChatSession(session: InsertChatSession): Promise<ChatSession>;
@@ -23,10 +23,9 @@ export interface IStorage {
 }
 
 export class MemStorage implements IStorage {
-  private users: Map<number, User>;
+  private users: Map<string, User>;
   private chatSessions: Map<string, ChatSession>;
   private messages: Map<string, Message[]>;
-  private currentUserId: number;
   private currentSessionId: number;
   private currentMessageId: number;
 
@@ -34,25 +33,23 @@ export class MemStorage implements IStorage {
     this.users = new Map();
     this.chatSessions = new Map();
     this.messages = new Map();
-    this.currentUserId = 1;
     this.currentSessionId = 1;
     this.currentMessageId = 1;
   }
 
-  async getUser(id: number): Promise<User | undefined> {
+  async getUser(id: string): Promise<User | undefined> {
     return this.users.get(id);
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.currentUserId++;
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const existingUser = this.users.get(userData.id!);
+    const user: User = {
+      ...userData,
+      id: userData.id!,
+      createdAt: existingUser?.createdAt || new Date(),
+      updatedAt: new Date(),
+    };
+    this.users.set(user.id, user);
     return user;
   }
 
