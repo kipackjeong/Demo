@@ -6,7 +6,9 @@ This is a production-ready AI agent chatbot framework built with React frontend 
 
 ## User Preferences
 
-Preferred communication style: Simple, everyday language.
+- Preferred communication style: Simple, everyday language.
+- Initial AI greeting: Concise markdown-formatted weekly summary with Calendar, Tasks, and Recommendations sections
+- Regular conversations: Natural language without markdown formatting
 
 ## System Architecture
 
