@@ -1,33 +1,10 @@
-import { pgTable, text, serial, integer, boolean, timestamp, varchar, jsonb, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-
-// Session storage table for authentication
-export const sessions = pgTable(
-  "sessions",
-  {
-    sid: varchar("sid").primaryKey(),
-    sess: jsonb("sess").notNull(),
-    expire: timestamp("expire").notNull(),
-  },
-  (table) => [index("IDX_session_expire").on(table.expire)],
-);
-
-// User storage table for Replit authentication
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().notNull(),
-  email: varchar("email").unique(),
-  firstName: varchar("first_name"),
-  lastName: varchar("last_name"),
-  profileImageUrl: varchar("profile_image_url"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
 
 export const chatSessions = pgTable("chat_sessions", {
   id: serial("id").primaryKey(),
   sessionId: text("session_id").notNull().unique(),
-  userId: varchar("user_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -39,16 +16,8 @@ export const messages = pgTable("messages", {
   timestamp: timestamp("timestamp").defaultNow(),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  email: true,
-  firstName: true,
-  lastName: true,
-  profileImageUrl: true,
-});
-
 export const insertChatSessionSchema = createInsertSchema(chatSessions).pick({
   sessionId: true,
-  userId: true,
 });
 
 export const insertMessageSchema = createInsertSchema(messages).pick({
@@ -57,8 +26,6 @@ export const insertMessageSchema = createInsertSchema(messages).pick({
   content: true,
 });
 
-export type UpsertUser = typeof users.$inferInsert;
-export type User = typeof users.$inferSelect;
 export type ChatSession = typeof chatSessions.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
