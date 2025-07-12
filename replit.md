@@ -41,9 +41,17 @@ Preferred communication style: Simple, everyday language.
 - **LangChain Integration**: Full Azure OpenAI integration with LangChain framework
 - **Azure OpenAI Service**: Production-ready AI responses using Azure OpenAI GPT models
 - **Azure AD Authentication**: Uses DefaultAzureCredential for secure authentication
+- **Multi-Agent System**: LangGraph-powered life management with specialized agents
 - **Conversation History**: Per-session conversation context and memory management
 - **Streaming Response**: Word-by-word response delivery for natural interaction
 - **Fallback Handling**: Graceful degradation when AI service is unavailable
+
+### Life Management Multi-Agent System
+- **Orchestration Agent**: Boss agent that analyzes user requests and routes to appropriate sub-agents
+- **Google Calendar Agent**: Specialized agent for calendar management, scheduling, and appointments
+- **Google Tasks Agent**: Specialized agent for task management, todos, and reminders
+- **Intelligent Routing**: Smart decision-making to determine which agents are needed for each request
+- **Coordinated Workflow**: Agents work together to provide comprehensive life management assistance
 
 ### User Interface
 - **Chat Interface**: Clean, modern chat UI with message bubbles

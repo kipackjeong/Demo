@@ -3,24 +3,27 @@ import { AzureChatOpenAI } from "@langchain/azure-openai";
 import { HumanMessage, SystemMessage, AIMessage } from "@langchain/core/messages";
 import { BaseMessage } from "@langchain/core/messages";
 
-// Define the state interface for the multi-agent system
-interface AgentState {
+// Define the state interface for the life management system
+interface LifeManagerState {
   messages: BaseMessage[];
   userMessage: string;
   sessionId: string;
   agentDecision: string;
   finalResponse: string;
   context: Record<string, any>;
+  calendarData?: any[];
+  tasksData?: any[];
+  orchestrationPlan?: string;
 }
 
-export class MultiAgentSystem {
+export class LifeManagerSystem {
   private azureOpenAI: AzureChatOpenAI | null = null;
   private conversationHistory: Map<string, Array<{ role: string; content: string }>> = new Map();
-  private graph: StateGraph<AgentState> | null = null;
+  private graph: StateGraph<LifeManagerState> | null = null;
 
   constructor() {
     this.initializeAzureOpenAI();
-    this.setupGraph();
+    this.setupLifeManagerGraph();
   }
 
   private initializeAzureOpenAI() {
@@ -30,7 +33,7 @@ export class MultiAgentSystem {
     const apiVersion = process.env.AZURE_OPENAI_API_VERSION || "2024-02-01";
 
     if (!endpoint || !deploymentName) {
-      console.log("Multi-agent system: Azure OpenAI configuration incomplete");
+      console.log("Life Manager system: Azure OpenAI configuration incomplete");
       return;
     }
 
@@ -45,16 +48,16 @@ export class MultiAgentSystem {
           maxTokens: 1000,
           timeout: 10000,
         });
-        console.log("Multi-agent system: Azure OpenAI initialized successfully");
+        console.log("Life Manager system: Azure OpenAI initialized successfully");
       }
     } catch (error) {
-      console.error("Multi-agent system: Failed to initialize Azure OpenAI:", error);
+      console.error("Life Manager system: Failed to initialize Azure OpenAI:", error);
     }
   }
 
-  private setupGraph() {
-    // Create the state graph
-    const workflow = new StateGraph<AgentState>({
+  private setupLifeManagerGraph() {
+    // Create the state graph for life management
+    const workflow = new StateGraph<LifeManagerState>({
       channels: {
         messages: {
           reducer: (x: BaseMessage[], y: BaseMessage[]) => x.concat(y),
@@ -75,225 +78,325 @@ export class MultiAgentSystem {
         context: {
           default: () => ({}),
         },
+        calendarData: {
+          default: () => [],
+        },
+        tasksData: {
+          default: () => [],
+        },
+        orchestrationPlan: {
+          default: () => "",
+        },
       },
     });
 
     // Add nodes to the graph
-    workflow.addNode("router", this.routerAgent.bind(this));
-    workflow.addNode("conversational_agent", this.conversationalAgent.bind(this));
-    workflow.addNode("technical_agent", this.technicalAgent.bind(this));
-    workflow.addNode("creative_agent", this.creativeAgent.bind(this));
-    workflow.addNode("finalizer", this.finalizerAgent.bind(this));
+    workflow.addNode("orchestration_agent", this.orchestrationAgent.bind(this));
+    workflow.addNode("calendar_agent", this.calendarAgent.bind(this));
+    workflow.addNode("tasks_agent", this.tasksAgent.bind(this));
+    workflow.addNode("life_manager_finalizer", this.lifeManagerFinalizer.bind(this));
 
     // Define the workflow edges
-    workflow.addEdge(START, "router");
+    workflow.addEdge(START, "orchestration_agent");
     
-    // Conditional edges from router to different agents
+    // Conditional edges from orchestration agent to specialized agents
     workflow.addConditionalEdges(
-      "router",
-      this.routeToAgent.bind(this),
+      "orchestration_agent",
+      this.routeToLifeAgent.bind(this),
       {
-        "conversational": "conversational_agent",
-        "technical": "technical_agent",
-        "creative": "creative_agent",
+        "calendar": "calendar_agent",
+        "tasks": "tasks_agent",
+        "both": "calendar_agent", // Start with calendar, then tasks
+        "direct_response": "life_manager_finalizer",
       }
     );
 
-    // All agents flow to finalizer
-    workflow.addEdge("conversational_agent", "finalizer");
-    workflow.addEdge("technical_agent", "finalizer");
-    workflow.addEdge("creative_agent", "finalizer");
-    workflow.addEdge("finalizer", END);
+    // Calendar agent can flow to tasks agent or finalizer
+    workflow.addConditionalEdges(
+      "calendar_agent",
+      this.shouldProcessTasks.bind(this),
+      {
+        "tasks": "tasks_agent",
+        "finalizer": "life_manager_finalizer",
+      }
+    );
+
+    // Tasks agent flows to finalizer
+    workflow.addEdge("tasks_agent", "life_manager_finalizer");
+    workflow.addEdge("life_manager_finalizer", END);
 
     this.graph = workflow.compile();
-    console.log("Multi-agent system: Graph compiled successfully");
+    console.log("Life Manager system: Graph compiled successfully");
   }
 
-  // Router agent decides which specialized agent to use
-  private async routerAgent(state: AgentState): Promise<Partial<AgentState>> {
+  // Orchestration (Boss) Agent decides which specialized agent is needed
+  private async orchestrationAgent(state: LifeManagerState): Promise<Partial<LifeManagerState>> {
     if (!this.azureOpenAI) {
-      return { agentDecision: "conversational" };
+      return { 
+        agentDecision: "direct_response",
+        orchestrationPlan: "AI service unavailable"
+      };
     }
 
     try {
-      const routerPrompt = `You are a routing agent that decides which specialized agent should handle a user's request.
+      const orchestrationPrompt = `You are the Orchestration Agent for a Life Management system. Your role is to analyze user requests and determine which specialized agents should handle the task.
 
-Analyze the user's message and classify it into one of these categories:
-- "conversational": General chat, greetings, casual conversation
-- "technical": Programming questions, technical explanations, debugging help
-- "creative": Creative writing, storytelling, brainstorming, artistic tasks
+Available agents:
+- "calendar": Google Calendar Agent - handles scheduling, appointments, calendar events, meeting management
+- "tasks": Google Tasks Agent - handles todo lists, task management, reminders, project tracking
+- "both": Both agents needed - for complex requests involving both calendar and tasks
+- "direct_response": Handle directly - for general questions about life management, system help, or casual conversation
 
-User message: "${state.userMessage}"
+Analyze this user message and decide which agent(s) should handle it:
+"${state.userMessage}"
 
-Respond with only the category name (conversational, technical, or creative).`;
+Consider:
+- Does it involve scheduling, appointments, or calendar events? → calendar
+- Does it involve tasks, todos, or reminders? → tasks  
+- Does it need both calendar and task data? → both
+- Is it a general question or greeting? → direct_response
 
-      const messages = [new SystemMessage(routerPrompt)];
+Respond with ONLY the agent decision (calendar, tasks, both, or direct_response).`;
+
+      const messages = [new SystemMessage(orchestrationPrompt)];
       const response = await this.azureOpenAI.invoke(messages);
       const decision = (response.content as string).trim().toLowerCase();
 
-      console.log(`Router decision: ${decision} for message: "${state.userMessage}"`);
+      console.log(`Orchestration decision: ${decision} for message: "${state.userMessage}"`);
+      
+      const validDecisions = ["calendar", "tasks", "both", "direct_response"];
+      const finalDecision = validDecisions.includes(decision) ? decision : "direct_response";
       
       return { 
-        agentDecision: ["conversational", "technical", "creative"].includes(decision) ? decision : "conversational",
-        context: { routingReason: decision }
+        agentDecision: finalDecision,
+        orchestrationPlan: `Routing to ${finalDecision} agent(s)`,
+        context: { orchestrationReason: decision }
       };
     } catch (error) {
-      console.error("Router agent error:", error);
-      return { agentDecision: "conversational" };
+      console.error("Orchestration agent error:", error);
+      return { 
+        agentDecision: "direct_response",
+        orchestrationPlan: "Error in orchestration, handling directly"
+      };
     }
   }
 
-  // Route to the appropriate agent based on router decision
-  private routeToAgent(state: AgentState): string {
-    return state.agentDecision || "conversational";
+  // Route to the appropriate agent based on orchestration decision
+  private routeToLifeAgent(state: LifeManagerState): string {
+    return state.agentDecision || "direct_response";
   }
 
-  // Conversational agent for general chat
-  private async conversationalAgent(state: AgentState): Promise<Partial<AgentState>> {
+  // Determine if tasks agent should also be called after calendar agent
+  private shouldProcessTasks(state: LifeManagerState): string {
+    return state.agentDecision === "both" ? "tasks" : "finalizer";
+  }
+
+  // Google Calendar Agent - handles calendar-related requests
+  private async calendarAgent(state: LifeManagerState): Promise<Partial<LifeManagerState>> {
+    console.log("Calendar Agent processing request:", state.userMessage);
+    
+    // TODO: Implement Google Calendar API integration
+    // For now, return a placeholder response indicating calendar functionality
+    const calendarData = [
+      {
+        title: "Meeting with Team",
+        date: "2025-07-12",
+        time: "10:00 AM",
+        description: "Weekly team standup meeting"
+      },
+      {
+        title: "Doctor Appointment",
+        date: "2025-07-13",
+        time: "2:00 PM",
+        description: "Annual checkup"
+      }
+    ];
+
+    let response = "";
     if (!this.azureOpenAI) {
-      return { finalResponse: "I'm having trouble connecting to the AI service right now." };
+      response = "I'm having trouble connecting to the AI service, but I can still help with calendar management.";
+    } else {
+      try {
+        const calendarPrompt = `You are the Google Calendar Agent in a Life Management system. Your role is to help users manage their calendar events, appointments, and scheduling.
+
+The user asked: "${state.userMessage}"
+
+Based on the user's request, I would normally:
+1. Connect to Google Calendar API to retrieve/modify calendar data
+2. Parse the user's intent (view schedule, add event, reschedule, etc.)
+3. Perform the requested calendar operation
+
+Current calendar data (placeholder):
+${JSON.stringify(calendarData, null, 2)}
+
+Please provide a helpful response about calendar management. Note that Google Calendar API integration is not yet implemented, so explain what would be done when the integration is complete.`;
+
+        const messages = [new SystemMessage(calendarPrompt)];
+        const aiResponse = await this.azureOpenAI.invoke(messages);
+        response = aiResponse.content as string;
+      } catch (error) {
+        console.error("Calendar agent error:", error);
+        response = "I'm having trouble processing your calendar request right now. Please try again later.";
+      }
     }
 
-    try {
-      const history = this.conversationHistory.get(state.sessionId) || [];
-      
-      const messages = [
-        new SystemMessage(`You are a friendly, conversational AI assistant. 
-        Engage in natural, helpful conversation. Be warm, personable, and supportive.
-        Keep responses concise but engaging.`),
-        ...history.slice(-6).map(msg => 
-          msg.role === "user" ? new HumanMessage(msg.content) : new AIMessage(msg.content)
-        ),
-        new HumanMessage(state.userMessage)
-      ];
-
-      const response = await this.azureOpenAI.invoke(messages);
-      const content = response.content as string;
-
-      // Update conversation history
-      history.push({ role: "user", content: state.userMessage });
-      history.push({ role: "assistant", content: content });
-      this.conversationHistory.set(state.sessionId, history.slice(-20));
-
-      return { finalResponse: content };
-    } catch (error) {
-      console.error("Conversational agent error:", error);
-      return { finalResponse: "I'm having trouble processing your request right now." };
-    }
+    return { 
+      calendarData,
+      finalResponse: response,
+      context: { ...state.context, calendarProcessed: true }
+    };
   }
 
-  // Technical agent for programming and technical questions
-  private async technicalAgent(state: AgentState): Promise<Partial<AgentState>> {
+  // Google Tasks Agent - handles task-related requests
+  private async tasksAgent(state: LifeManagerState): Promise<Partial<LifeManagerState>> {
+    console.log("Tasks Agent processing request:", state.userMessage);
+    
+    // TODO: Implement Google Tasks API integration
+    // For now, return a placeholder response indicating tasks functionality
+    const tasksData = [
+      {
+        title: "Complete project proposal",
+        priority: "high",
+        dueDate: "2025-07-15",
+        completed: false
+      },
+      {
+        title: "Buy groceries",
+        priority: "medium",
+        dueDate: "2025-07-12",
+        completed: false
+      },
+      {
+        title: "Call dentist",
+        priority: "low",
+        dueDate: null,
+        completed: true
+      }
+    ];
+
+    let response = "";
     if (!this.azureOpenAI) {
-      return { finalResponse: "I'm having trouble connecting to the AI service right now." };
+      response = "I'm having trouble connecting to the AI service, but I can still help with task management.";
+    } else {
+      try {
+        const tasksPrompt = `You are the Google Tasks Agent in a Life Management system. Your role is to help users manage their tasks, todos, and reminders.
+
+The user asked: "${state.userMessage}"
+
+Based on the user's request, I would normally:
+1. Connect to Google Tasks API to retrieve/modify task data
+2. Parse the user's intent (view tasks, add task, mark complete, etc.)
+3. Perform the requested task operation
+
+Current tasks data (placeholder):
+${JSON.stringify(tasksData, null, 2)}
+
+Calendar context from previous agent: ${state.context?.calendarProcessed ? "Calendar data was processed" : "No calendar data processed"}
+
+Please provide a helpful response about task management. Note that Google Tasks API integration is not yet implemented, so explain what would be done when the integration is complete.`;
+
+        const messages = [new SystemMessage(tasksPrompt)];
+        const aiResponse = await this.azureOpenAI.invoke(messages);
+        response = aiResponse.content as string;
+      } catch (error) {
+        console.error("Tasks agent error:", error);
+        response = "I'm having trouble processing your task request right now. Please try again later.";
+      }
     }
 
-    try {
-      const history = this.conversationHistory.get(state.sessionId) || [];
+    return { 
+      tasksData,
+      finalResponse: response,
+      context: { ...state.context, tasksProcessed: true }
+    };
+  }
+
+  // Life Manager Finalizer - combines results and provides final response
+  private async lifeManagerFinalizer(state: LifeManagerState): Promise<Partial<LifeManagerState>> {
+    // If we have a direct response, use it
+    if (state.agentDecision === "direct_response") {
+      if (!this.azureOpenAI) {
+        return { finalResponse: "Hello! I'm your Life Manager assistant. I can help you manage your calendar events and tasks. How can I assist you today?" };
+      }
+
+      try {
+        const history = this.conversationHistory.get(state.sessionId) || [];
+        
+        const messages = [
+          new SystemMessage(`You are a Life Manager assistant that helps users manage their schedules and tasks. 
+          You are friendly, organized, and proactive about helping users stay on top of their commitments.
+          
+          If the user is asking general questions about life management, provide helpful tips and guidance.
+          If they're greeting you, be warm and explain how you can help with calendar and task management.`),
+          ...history.slice(-6).map(msg => 
+            msg.role === "user" ? new HumanMessage(msg.content) : new AIMessage(msg.content)
+          ),
+          new HumanMessage(state.userMessage)
+        ];
+
+        const response = await this.azureOpenAI.invoke(messages);
+        const content = response.content as string;
+
+        // Update conversation history
+        history.push({ role: "user", content: state.userMessage });
+        history.push({ role: "assistant", content: content });
+        this.conversationHistory.set(state.sessionId, history.slice(-20));
+
+        return { finalResponse: content };
+      } catch (error) {
+        console.error("Life Manager finalizer error:", error);
+        return { finalResponse: "I'm having trouble processing your request right now. Please try again." };
+      }
+    }
+
+    // If we have agent responses, combine them
+    const hasCalendarData = state.calendarData && state.calendarData.length > 0;
+    const hasTasksData = state.tasksData && state.tasksData.length > 0;
+
+    if (hasCalendarData || hasTasksData) {
+      let combinedResponse = state.finalResponse || "Here's what I found:";
       
-      const messages = [
-        new SystemMessage(`You are a technical AI assistant specializing in programming, software development, and technical problem-solving.
-        
-        Provide clear, accurate technical explanations and solutions. Include:
-        - Code examples when relevant
-        - Step-by-step explanations
-        - Best practices and common pitfalls
-        - Alternative approaches when applicable
-        
-        Be precise and thorough while remaining accessible.`),
-        ...history.slice(-6).map(msg => 
-          msg.role === "user" ? new HumanMessage(msg.content) : new AIMessage(msg.content)
-        ),
-        new HumanMessage(state.userMessage)
-      ];
-
-      const response = await this.azureOpenAI.invoke(messages);
-      const content = response.content as string;
-
-      // Update conversation history
-      history.push({ role: "user", content: state.userMessage });
-      history.push({ role: "assistant", content: content });
-      this.conversationHistory.set(state.sessionId, history.slice(-20));
-
-      return { finalResponse: content };
-    } catch (error) {
-      console.error("Technical agent error:", error);
-      return { finalResponse: "I'm having trouble processing your technical request right now." };
-    }
-  }
-
-  // Creative agent for creative tasks
-  private async creativeAgent(state: AgentState): Promise<Partial<AgentState>> {
-    if (!this.azureOpenAI) {
-      return { finalResponse: "I'm having trouble connecting to the AI service right now." };
-    }
-
-    try {
-      const history = this.conversationHistory.get(state.sessionId) || [];
+      if (hasCalendarData && hasTasksData) {
+        combinedResponse += "\n\nI've processed both your calendar and tasks data to give you a comprehensive view of your schedule and commitments.";
+      }
       
-      const messages = [
-        new SystemMessage(`You are a creative AI assistant specializing in creative writing, storytelling, brainstorming, and artistic tasks.
-        
-        Be imaginative, inspiring, and original. Help users with:
-        - Creative writing and storytelling
-        - Brainstorming and ideation
-        - Artistic concepts and descriptions
-        - Creative problem-solving
-        
-        Encourage creativity while providing practical, actionable guidance.`),
-        ...history.slice(-6).map(msg => 
-          msg.role === "user" ? new HumanMessage(msg.content) : new AIMessage(msg.content)
-        ),
-        new HumanMessage(state.userMessage)
-      ];
-
-      const response = await this.azureOpenAI.invoke(messages);
-      const content = response.content as string;
-
-      // Update conversation history
-      history.push({ role: "user", content: state.userMessage });
-      history.push({ role: "assistant", content: content });
-      this.conversationHistory.set(state.sessionId, history.slice(-20));
-
-      return { finalResponse: content };
-    } catch (error) {
-      console.error("Creative agent error:", error);
-      return { finalResponse: "I'm having trouble processing your creative request right now." };
+      return { finalResponse: combinedResponse };
     }
+
+    // Return the existing response
+    return { finalResponse: state.finalResponse || "I'm ready to help you manage your life better!" };
   }
 
-  // Finalizer agent to polish and format the final response
-  private async finalizerAgent(state: AgentState): Promise<Partial<AgentState>> {
-    // For now, just return the response as-is
-    // In the future, this could add formatting, fact-checking, etc.
-    return { finalResponse: state.finalResponse };
-  }
-
-  // Main method to generate response using the multi-agent system
+  // Main method to generate response using the life management system
   async generateResponse(userMessage: string, sessionId: string = "default"): Promise<string> {
     if (!this.graph) {
-      console.log("Multi-agent system not initialized, falling back to simple response");
-      return "I'm currently setting up the multi-agent system. Please try again in a moment.";
+      console.log("Life Manager system not initialized, falling back to simple response");
+      return "I'm currently setting up the Life Manager system. Please try again in a moment.";
     }
 
     try {
-      console.log(`Multi-agent system processing: "${userMessage}" for session: ${sessionId}`);
+      console.log(`Life Manager system processing: "${userMessage}" for session: ${sessionId}`);
       
-      const initialState: AgentState = {
+      const initialState: LifeManagerState = {
         messages: [],
         userMessage,
         sessionId,
         agentDecision: "",
         finalResponse: "",
         context: {},
+        calendarData: [],
+        tasksData: [],
+        orchestrationPlan: "",
       };
 
       const result = await this.graph.invoke(initialState);
       
-      console.log(`Multi-agent system completed with decision: ${result.agentDecision}`);
+      console.log(`Life Manager system completed with decision: ${result.agentDecision}`);
+      console.log(`Orchestration plan: ${result.orchestrationPlan}`);
+      
       return result.finalResponse || "I'm having trouble generating a response right now.";
     } catch (error) {
-      console.error("Multi-agent system error:", error);
+      console.error("Life Manager system error:", error);
       return "I encountered an error while processing your request. Please try again.";
     }
   }
@@ -309,6 +412,11 @@ Respond with only the category name (conversational, technical, or creative).`;
       azureOpenAIInitialized: !!this.azureOpenAI,
       graphInitialized: !!this.graph,
       activeSessions: this.conversationHistory.size,
+      agents: {
+        orchestration: "Active",
+        googleCalendar: "Placeholder (API not integrated)",
+        googleTasks: "Placeholder (API not integrated)",
+      },
     };
   }
 }

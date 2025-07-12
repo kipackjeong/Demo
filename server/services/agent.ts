@@ -2,19 +2,19 @@ import { AzureChatOpenAI } from "@langchain/azure-openai";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { DefaultAzureCredential } from "@azure/identity";
 import { testDirectAzureOpenAI } from "./directAzureTest.js";
-import { MultiAgentSystem } from "./multiAgent.js";
+import { LifeManagerSystem } from "./multiAgent.js";
 
 export class AgentService {
   private azureOpenAI: AzureChatOpenAI | null = null;
   private conversationHistory: Map<string, Array<{ role: string; content: string }>> = new Map();
-  private multiAgentSystem: MultiAgentSystem;
+  private lifeManagerSystem: LifeManagerSystem;
 
   constructor() {
     this.initializeAzureOpenAI();
     // Test direct connection
     this.testDirectConnection();
-    // Initialize multi-agent system
-    this.multiAgentSystem = new MultiAgentSystem();
+    // Initialize life manager system
+    this.lifeManagerSystem = new LifeManagerSystem();
   }
 
   private async testDirectConnection() {
@@ -97,15 +97,15 @@ export class AgentService {
   async generateResponse(userMessage: string, sessionId: string = "default"): Promise<string> {
     console.log(`Generating response for session ${sessionId}: "${userMessage}"`);
     
-    // Use multi-agent system if available
-    if (this.multiAgentSystem) {
+    // Use life manager system if available
+    if (this.lifeManagerSystem) {
       try {
-        console.log("Using multi-agent system for response generation");
-        const response = await this.multiAgentSystem.generateResponse(userMessage, sessionId);
-        console.log(`Multi-agent system response: "${response.substring(0, 100)}..."`);
+        console.log("Using Life Manager system for response generation");
+        const response = await this.lifeManagerSystem.generateResponse(userMessage, sessionId);
+        console.log(`Life Manager system response: "${response.substring(0, 100)}..."`);
         return response;
       } catch (error) {
-        console.error("Multi-agent system error, falling back to single agent:", error);
+        console.error("Life Manager system error, falling back to single agent:", error);
         // Fall through to single agent backup
       }
     }
@@ -179,8 +179,8 @@ export class AgentService {
 
   clearConversationHistory(sessionId: string) {
     this.conversationHistory.delete(sessionId);
-    if (this.multiAgentSystem) {
-      this.multiAgentSystem.clearConversationHistory(sessionId);
+    if (this.lifeManagerSystem) {
+      this.lifeManagerSystem.clearConversationHistory(sessionId);
     }
   }
 
@@ -190,7 +190,7 @@ export class AgentService {
         azureOpenAIInitialized: !!this.azureOpenAI,
         activeSessions: this.conversationHistory.size,
       },
-      multiAgent: this.multiAgentSystem?.getSystemStatus() || null,
+      lifeManager: this.lifeManagerSystem?.getSystemStatus() || null,
     };
   }
 }
