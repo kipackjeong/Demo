@@ -80,7 +80,7 @@ export default function ChatPage() {
         // Send the initial request to get weekly summary
         sendWebSocketMessage({
           type: "user_message",
-          content: "Please provide me with a summary of my tasks and schedule for this week. I'd like to get an overview of what I need to focus on.",
+          content: "[INITIAL_SUMMARY] Please provide me with a concise weekly summary in markdown format showing my calendar events and tasks.",
           sessionId: sessionId,
           timestamp: new Date().toISOString(),
           role: "user"

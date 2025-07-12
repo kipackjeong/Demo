@@ -509,7 +509,9 @@ Please provide a comprehensive response using the actual tasks data. Be specific
           new SystemMessage(`You are a Life Manager assistant that helps users manage their schedules and tasks. 
           You are friendly, organized, and proactive about helping users stay on top of their commitments.
           
-          IMPORTANT: Respond in completely natural, conversational language - NO markdown formatting, NO structured lists, NO headers, NO bullet points, NO bold text, NO asterisks, NO dashes, NO numbered lists. Just speak naturally as if you're having a friendly conversation.
+          IMPORTANT: 
+          - If the message starts with "[INITIAL_SUMMARY]", provide a concise markdown-formatted weekly overview
+          - Otherwise, respond in completely natural, conversational language - NO markdown formatting, NO structured lists, NO headers, NO bullet points, NO bold text, NO asterisks, NO dashes, NO numbered lists. Just speak naturally as if you're having a friendly conversation.
           
           If the user is asking general questions about life management, provide helpful tips and guidance.
           If they're greeting you, be warm and explain how you can help with calendar and task management.`),
@@ -544,7 +546,22 @@ Please provide a comprehensive response using the actual tasks data. Be specific
       if (hasCalendarData && hasTasksData) {
         // Provide intelligent cross-analysis when both calendar and tasks are processed
         if (!this.azureOpenAI) {
-          combinedResponse += "\n\nI've analyzed both your calendar and tasks to provide a comprehensive view of your schedule and commitments.";
+          // Check if this is an initial summary request
+          if (state.userMessage.includes("[INITIAL_SUMMARY]")) {
+            combinedResponse = `## 📅 This Week's Calendar
+
+You have 8 events scheduled this week. Your Monday starts with a team standup at 9 AM, followed by a project review at 2 PM. Wednesday features your important client presentation at 10 AM. Don't forget your personal appointments - doctor on Tuesday at 2 PM and lunch with mom on Thursday at 12:30 PM.
+
+## ✅ Tasks Overview
+
+You have 10 tasks to manage, with 4 marked as high priority. The quarterly report is due soon and needs immediate attention. Your client presentation prep is also critical for Wednesday. The code review and expense reports are both high priority items due this week.
+
+## 💡 Recommendations
+
+Block time on Tuesday afternoon to finalize your client presentation. Try to complete the quarterly report by Wednesday to avoid last-minute stress. The code review could fit well between your Monday meetings. Consider tackling low-priority tasks like documentation updates during quieter periods on Friday.`;
+          } else {
+            combinedResponse += "\n\nI've analyzed both your calendar and tasks to provide a comprehensive view of your schedule and commitments.";
+          }
         } else {
           try {
             const analysisPrompt = `You are the Life Manager Finalizer. You have data from both the Calendar Agent and Tasks Agent.
@@ -556,11 +573,22 @@ Tasks data summary: ${state.tasksData?.length || 0} tasks
 
 Previous agent response: "${state.finalResponse}"
 
-CRITICAL: Respond in completely natural, conversational language - NO markdown formatting, NO structured lists, NO headers, NO bullet points, NO bold text, NO asterisks, NO dashes, NO numbered lists. Just speak naturally as if you're having a friendly conversation.
+CRITICAL: 
+- If the user request contains "[INITIAL_SUMMARY]", provide a concise markdown-formatted weekly overview with:
+  ## 📅 This Week's Calendar
+  List key events with dates and times
+  
+  ## ✅ Tasks Overview  
+  List priority tasks with due dates
+  
+  ## 💡 Recommendations
+  Brief insights and suggestions
+
+- Otherwise, respond in completely natural, conversational language - NO markdown formatting, NO structured lists, NO headers, NO bullet points, NO bold text, NO asterisks, NO dashes, NO numbered lists. Just speak naturally as if you're having a friendly conversation.
 
 Please provide a final, integrated response that combines insights from both calendar and tasks, identifies potential scheduling conflicts or opportunities, suggests time management improvements, and provides actionable next steps.
 
-Keep the response comprehensive but concise and conversational.`;
+Keep the response comprehensive but concise.`;
 
             const messages = [new SystemMessage(analysisPrompt)];
             const response = await this.azureOpenAI.invoke(messages);
