@@ -73,6 +73,24 @@ export default function ChatPage() {
     onMessage: handleMessage
   });
 
+  // Send initial greeting when connected
+  useEffect(() => {
+    if (connectionStatus === "connected" && messages.length === 0) {
+      const timer = setTimeout(() => {
+        // Send the initial request to get weekly summary
+        sendWebSocketMessage({
+          type: "user_message",
+          content: "Please provide me with a summary of my tasks and schedule for this week. I'd like to get an overview of what I need to focus on.",
+          sessionId: sessionId,
+          timestamp: new Date().toISOString(),
+          role: "user"
+        });
+      }, 500); // Small delay to ensure connection is fully established
+      
+      return () => clearTimeout(timer);
+    }
+  }, [connectionStatus, messages.length, sendWebSocketMessage, sessionId]);
+
   useEffect(() => {
     if (error) {
       toast({
