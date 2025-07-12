@@ -2,6 +2,7 @@ import { StateGraph, END, START } from "@langchain/langgraph";
 import { AzureChatOpenAI } from "@langchain/azure-openai";
 import { HumanMessage, SystemMessage, AIMessage } from "@langchain/core/messages";
 import { BaseMessage } from "@langchain/core/messages";
+import { mockDataStore } from "./mockDataStore";
 
 // Define the state interface for the life management system
 interface LifeManagerState {
@@ -20,6 +21,34 @@ export class LifeManagerSystem {
   private azureOpenAI: AzureChatOpenAI | null = null;
   private conversationHistory: Map<string, Array<{ role: string; content: string }>> = new Map();
   private graph: StateGraph<LifeManagerState> | null = null;
+  
+  // Helper methods for date/time formatting
+  private calculateEndTime(startTime: string, durationMinutes: number): string {
+    const [time, period] = startTime.split(" ");
+    const [hours, minutes] = time.split(":").map(Number);
+    let totalHours = hours;
+    
+    if (period === "PM" && hours !== 12) totalHours += 12;
+    if (period === "AM" && hours === 12) totalHours = 0;
+    
+    const startMinutes = totalHours * 60 + minutes;
+    const endMinutes = startMinutes + durationMinutes;
+    
+    let endHours = Math.floor(endMinutes / 60) % 24;
+    const endMins = endMinutes % 60;
+    
+    const endPeriod = endHours >= 12 ? "PM" : "AM";
+    if (endHours > 12) endHours -= 12;
+    if (endHours === 0) endHours = 12;
+    
+    return `${endHours}:${endMins.toString().padStart(2, "0")} ${endPeriod}`;
+  }
+  
+  private formatDate(dateStr: string): string {
+    const date = new Date(dateStr + "T00:00:00");
+    const options: Intl.DateTimeFormatOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    return date.toLocaleDateString('en-US', options);
+  }
 
   constructor() {
     this.initializeAzureOpenAI();
@@ -195,105 +224,9 @@ Respond with ONLY the agent decision (calendar, tasks, both, or direct_response)
   private async calendarAgent(state: LifeManagerState): Promise<Partial<LifeManagerState>> {
     console.log("Calendar Agent processing request:", state.userMessage);
     
-    // Rich mock calendar data for testing
-    const calendarData = [
-      {
-        id: "cal_001",
-        title: "Team Sprint Planning",
-        date: "2025-07-12",
-        time: "09:00 AM",
-        endTime: "11:00 AM",
-        description: "Planning session for Q3 sprint goals and backlog prioritization",
-        location: "Conference Room A",
-        attendees: ["john@company.com", "sarah@company.com", "mike@company.com"],
-        status: "confirmed",
-        priority: "high"
-      },
-      {
-        id: "cal_002",
-        title: "Doctor Appointment - Annual Checkup",
-        date: "2025-07-13",
-        time: "2:00 PM",
-        endTime: "3:00 PM",
-        description: "Annual physical examination with Dr. Smith",
-        location: "Medical Center, Suite 204",
-        attendees: ["patient@email.com"],
-        status: "confirmed",
-        priority: "medium"
-      },
-      {
-        id: "cal_003",
-        title: "Client Presentation - Q3 Review",
-        date: "2025-07-14",
-        time: "3:30 PM",
-        endTime: "5:00 PM",
-        description: "Quarterly business review with ABC Corp client",
-        location: "Virtual Meeting (Zoom)",
-        attendees: ["client@abccorp.com", "account@company.com"],
-        status: "confirmed",
-        priority: "high"
-      },
-      {
-        id: "cal_004",
-        title: "Lunch with Mom",
-        date: "2025-07-15",
-        time: "12:30 PM",
-        endTime: "2:00 PM",
-        description: "Monthly lunch catch-up",
-        location: "Italian Bistro downtown",
-        attendees: ["mom@family.com"],
-        status: "confirmed",
-        priority: "medium"
-      },
-      {
-        id: "cal_005",
-        title: "Dentist Appointment",
-        date: "2025-07-16",
-        time: "10:00 AM",
-        endTime: "11:00 AM",
-        description: "Routine dental cleaning",
-        location: "Smile Dental Clinic",
-        attendees: ["patient@email.com"],
-        status: "confirmed",
-        priority: "low"
-      },
-      {
-        id: "cal_006",
-        title: "Project Demo - Marketing Team",
-        date: "2025-07-17",
-        time: "4:00 PM",
-        endTime: "5:30 PM",
-        description: "Demo new analytics dashboard features",
-        location: "Meeting Room B",
-        attendees: ["marketing@company.com", "dev@company.com"],
-        status: "tentative",
-        priority: "medium"
-      },
-      {
-        id: "cal_007",
-        title: "Weekend Hiking Trip",
-        date: "2025-07-19",
-        time: "8:00 AM",
-        endTime: "6:00 PM",
-        description: "Day hike at Blue Ridge Mountains with friends",
-        location: "Blue Ridge Trail Head",
-        attendees: ["friends@group.com"],
-        status: "confirmed",
-        priority: "low"
-      },
-      {
-        id: "cal_008",
-        title: "1:1 with Manager",
-        date: "2025-07-21",
-        time: "2:00 PM",
-        endTime: "3:00 PM",
-        description: "Monthly check-in and performance review",
-        location: "Manager's Office",
-        attendees: ["manager@company.com"],
-        status: "confirmed",
-        priority: "high"
-      }
-    ];
+    // Get calendar data from the store
+    const calendarData = mockDataStore.getCalendarEvents();
+
 
     let response = "";
     if (!this.azureOpenAI) {
@@ -307,15 +240,49 @@ The user asked: "${state.userMessage}"
 You have access to the following calendar data:
 ${JSON.stringify(calendarData, null, 2)}
 
-CRITICAL: Respond in completely natural, conversational language - NO markdown formatting, NO structured lists, NO headers, NO bullet points, NO bold text, NO asterisks, NO dashes, NO numbered lists. Just speak naturally as if you're having a friendly conversation.
+IMPORTANT INSTRUCTIONS:
+1. If the user is asking to SCHEDULE, ADD, or CREATE a new meeting/event:
+   - Extract the following details: title, date, time, duration, attendees, description, location
+   - Use tomorrow's date if they say "tomorrow" (current date is ${new Date().toISOString().split('T')[0]})
+   - Default duration is 1 hour if not specified
+   - Respond with: "SCHEDULE_EVENT::{JSON with event details}"
+   
+2. For other requests, respond in completely natural, conversational language - NO markdown formatting, NO structured lists, NO headers, NO bullet points, NO bold text, NO asterisks, NO dashes, NO numbered lists.
 
-Based on the user's request, analyze the calendar data and provide a helpful response. You can show upcoming events and appointments, identify scheduling conflicts, suggest optimal meeting times, provide calendar summaries and insights, and help with event planning and scheduling.
+Example scheduling response:
+SCHEDULE_EVENT::{"title":"Design Discussion with Kathy","date":"2025-07-13","time":"6:00 PM","endTime":"7:00 PM","attendees":["kathy@email.com"],"description":"Design discussion meeting","location":"TBD"}
 
-Please provide a comprehensive response using the actual calendar data. Be specific about dates, times, and event details but speak conversationally.`;
+Based on the user's request, analyze the calendar data and provide a helpful response.`;
 
         const messages = [new SystemMessage(calendarPrompt)];
         const aiResponse = await this.azureOpenAI.invoke(messages);
         response = aiResponse.content as string;
+        
+        // Check if AI wants to schedule an event
+        if (response.startsWith("SCHEDULE_EVENT::")) {
+          try {
+            const eventJson = response.substring("SCHEDULE_EVENT::".length);
+            const eventData = JSON.parse(eventJson);
+            
+            // Add the new event to the mock data store
+            const newEvent = mockDataStore.addCalendarEvent({
+              title: eventData.title,
+              date: eventData.date,
+              time: eventData.time,
+              endTime: eventData.endTime || this.calculateEndTime(eventData.time, 60), // Default 1 hour
+              description: eventData.description || "",
+              location: eventData.location || "TBD",
+              attendees: eventData.attendees || [],
+              status: "confirmed",
+              priority: eventData.priority || "medium"
+            });
+            
+            response = `I've successfully scheduled "${newEvent.title}" for ${this.formatDate(newEvent.date)} at ${newEvent.time}. The meeting is set to last until ${newEvent.endTime}${newEvent.location !== "TBD" ? ` at ${newEvent.location}` : ""}. I've sent invitations to ${newEvent.attendees.length > 0 ? newEvent.attendees.join(", ") : "the attendees"}.`;
+          } catch (error) {
+            console.error("Failed to parse scheduling request:", error);
+            response = "I understood you want to schedule a meeting, but I had trouble processing the details. Could you please clarify the date, time, and attendees?";
+          }
+        }
       } catch (error) {
         console.error("Calendar agent error:", error);
         response = "I'm having trouble processing your calendar request right now. Please try again later.";
@@ -333,130 +300,9 @@ Please provide a comprehensive response using the actual calendar data. Be speci
   private async tasksAgent(state: LifeManagerState): Promise<Partial<LifeManagerState>> {
     console.log("Tasks Agent processing request:", state.userMessage);
     
-    // Rich mock tasks data for testing
-    const tasksData = [
-      {
-        id: "task_001",
-        title: "Complete Q3 Project Proposal",
-        description: "Finalize the project proposal document for Q3 initiatives including budget analysis and timeline",
-        priority: "high",
-        dueDate: "2025-07-15",
-        completed: false,
-        category: "work",
-        estimatedTime: "4 hours",
-        tags: ["project", "proposal", "Q3"],
-        createdDate: "2025-07-01"
-      },
-      {
-        id: "task_002",
-        title: "Buy Groceries for Week",
-        description: "Weekly grocery shopping: milk, bread, eggs, vegetables, fruits, chicken",
-        priority: "medium",
-        dueDate: "2025-07-12",
-        completed: false,
-        category: "personal",
-        estimatedTime: "1.5 hours",
-        tags: ["shopping", "food", "weekly"],
-        createdDate: "2025-07-10"
-      },
-      {
-        id: "task_003",
-        title: "Schedule Annual Physical Exam",
-        description: "Call Dr. Smith's office to schedule annual physical examination",
-        priority: "low",
-        dueDate: "2025-07-20",
-        completed: true,
-        category: "health",
-        estimatedTime: "15 minutes",
-        tags: ["health", "appointment", "annual"],
-        createdDate: "2025-07-05",
-        completedDate: "2025-07-11"
-      },
-      {
-        id: "task_004",
-        title: "Prepare Marketing Dashboard Demo",
-        description: "Create slides and demo script for marketing team presentation",
-        priority: "high",
-        dueDate: "2025-07-17",
-        completed: false,
-        category: "work",
-        estimatedTime: "3 hours",
-        tags: ["presentation", "marketing", "demo"],
-        createdDate: "2025-07-08"
-      },
-      {
-        id: "task_005",
-        title: "Research Weekend Hiking Gear",
-        description: "Look up best hiking boots and backpack for Blue Ridge trip",
-        priority: "low",
-        dueDate: "2025-07-18",
-        completed: false,
-        category: "personal",
-        estimatedTime: "1 hour",
-        tags: ["hiking", "gear", "research"],
-        createdDate: "2025-07-09"
-      },
-      {
-        id: "task_006",
-        title: "Update Resume with Recent Projects",
-        description: "Add Q2 accomplishments and recent project outcomes to resume",
-        priority: "medium",
-        dueDate: "2025-07-25",
-        completed: false,
-        category: "career",
-        estimatedTime: "2 hours",
-        tags: ["resume", "career", "projects"],
-        createdDate: "2025-07-03"
-      },
-      {
-        id: "task_007",
-        title: "Plan Mom's Birthday Celebration",
-        description: "Organize dinner reservation and gift for mom's birthday next month",
-        priority: "medium",
-        dueDate: "2025-07-30",
-        completed: false,
-        category: "personal",
-        estimatedTime: "2 hours",
-        tags: ["birthday", "family", "planning"],
-        createdDate: "2025-07-06"
-      },
-      {
-        id: "task_008",
-        title: "Submit Expense Reports",
-        description: "Process and submit Q2 business expense reports to accounting",
-        priority: "high",
-        dueDate: "2025-07-14",
-        completed: false,
-        category: "work",
-        estimatedTime: "1 hour",
-        tags: ["expenses", "reports", "accounting"],
-        createdDate: "2025-07-07"
-      },
-      {
-        id: "task_009",
-        title: "Clean and Organize Home Office",
-        description: "Deep clean desk area and organize filing system",
-        priority: "low",
-        dueDate: null,
-        completed: false,
-        category: "personal",
-        estimatedTime: "3 hours",
-        tags: ["cleaning", "organization", "office"],
-        createdDate: "2025-07-02"
-      },
-      {
-        id: "task_010",
-        title: "Review and Sign Insurance Documents",
-        description: "Review updated health insurance policy and sign renewal forms",
-        priority: "medium",
-        dueDate: "2025-07-22",
-        completed: false,
-        category: "admin",
-        estimatedTime: "45 minutes",
-        tags: ["insurance", "documents", "renewal"],
-        createdDate: "2025-07-04"
-      }
-    ];
+    // Get tasks data from the store
+    const tasksData = mockDataStore.getTasks();
+
 
     let response = "";
     if (!this.azureOpenAI) {
@@ -472,15 +318,67 @@ ${JSON.stringify(tasksData, null, 2)}
 
 Calendar context from previous agent: ${state.context?.calendarProcessed ? "Calendar data was processed" : "No calendar data processed"}
 
-CRITICAL: Respond in completely natural, conversational language - NO markdown formatting, NO structured lists, NO headers, NO bullet points, NO bold text, NO asterisks, NO dashes, NO numbered lists. Just speak naturally as if you're having a friendly conversation.
+IMPORTANT INSTRUCTIONS:
+1. If the user is asking to ADD, CREATE a new task:
+   - Extract details: title, description, priority, dueDate, category, estimatedTime, tags
+   - Default priority is "medium" if not specified
+   - Respond with: "CREATE_TASK::{JSON with task details}"
+   
+2. If the user wants to COMPLETE or MARK a task as done:
+   - Find the matching task and respond with: "COMPLETE_TASK::{task_id}"
+   
+3. For other requests, respond in completely natural, conversational language - NO markdown formatting.
 
-Based on the user's request, analyze the tasks data and provide a helpful response. You can show pending tasks and their priorities, identify overdue tasks and urgent deadlines, suggest task prioritization and time management, provide task summaries by category or priority, help with task planning and scheduling, and show completed tasks and progress tracking.
+Example task creation response:
+CREATE_TASK::{"title":"Review design mockups","description":"Review and provide feedback on new UI mockups","priority":"high","dueDate":"2025-07-15","category":"work","estimatedTime":"2 hours","tags":["design","review"]}
 
-Please provide a comprehensive response using the actual tasks data. Be specific about task details, due dates, and priorities but speak conversationally with actionable insights.`;
+Based on the user's request, analyze the tasks data and provide a helpful response.`;
 
         const messages = [new SystemMessage(tasksPrompt)];
         const aiResponse = await this.azureOpenAI.invoke(messages);
         response = aiResponse.content as string;
+        
+        // Check if AI wants to create a task
+        if (response.startsWith("CREATE_TASK::")) {
+          try {
+            const taskJson = response.substring("CREATE_TASK::".length);
+            const taskData = JSON.parse(taskJson);
+            
+            // Add the new task to the mock data store
+            const newTask = mockDataStore.addTask({
+              title: taskData.title,
+              description: taskData.description || "",
+              priority: taskData.priority || "medium",
+              dueDate: taskData.dueDate || "",
+              completed: false,
+              category: taskData.category || "personal",
+              estimatedTime: taskData.estimatedTime || "1 hour",
+              tags: taskData.tags || [],
+              createdDate: new Date().toISOString().split('T')[0]
+            });
+            
+            response = `I've created a new task "${newTask.title}" with ${newTask.priority} priority${newTask.dueDate ? `, due on ${this.formatDate(newTask.dueDate)}` : ""}. The task has been added to your ${newTask.category} category and is estimated to take ${newTask.estimatedTime}.`;
+          } catch (error) {
+            console.error("Failed to parse task creation request:", error);
+            response = "I understood you want to create a task, but I had trouble processing the details. Could you please clarify what task you'd like to add?";
+          }
+        }
+        // Check if AI wants to complete a task
+        else if (response.startsWith("COMPLETE_TASK::")) {
+          try {
+            const taskId = response.substring("COMPLETE_TASK::".length);
+            const completedTask = mockDataStore.completeTask(taskId);
+            
+            if (completedTask) {
+              response = `Great job! I've marked "${completedTask.title}" as completed. This ${completedTask.priority} priority task from your ${completedTask.category} category is now done.`;
+            } else {
+              response = "I couldn't find that task to mark as complete. Could you please clarify which task you'd like to complete?";
+            }
+          } catch (error) {
+            console.error("Failed to complete task:", error);
+            response = "I had trouble marking that task as complete. Please try again.";
+          }
+        }
       } catch (error) {
         console.error("Tasks agent error:", error);
         response = "I'm having trouble processing your task request right now. Please try again later.";
