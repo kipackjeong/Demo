@@ -153,8 +153,29 @@ export class LifeManagerSystemRefactored {
       }
 
       try {
+        // Analyze user message for direct action requests
+        const userMessage = state.userMessage.toLowerCase();
+        const isActionRequest = userMessage.includes("remove") ||
+                               userMessage.includes("delete") ||
+                               userMessage.includes("create") ||
+                               userMessage.includes("add") ||
+                               userMessage.includes("update") ||
+                               userMessage.includes("complete") ||
+                               userMessage.includes("show me") ||
+                               userMessage.includes("list") ||
+                               userMessage.includes("get");
+
+        // If this is a direct action request, bind tools and let the model use them
+        if (isActionRequest && !state.isInitialSummary) {
+          console.log("Direct action request detected, invoking model with tools");
+          const modelWithTools = this.azureOpenAI!.bindTools(this.tools);
+          const response = await modelWithTools.invoke(messages);
+          console.log("Model response with tools:", response);
+          return { messages: [response] };
+        }
+
         console.log("Invoking model without tools first...");
-        // First, let's try without tools to see if the model responds
+        // For conversational responses, try without tools first
         const simpleResponse = await this.azureOpenAI!.invoke(messages);
         console.log("AGENT RESPONSE:", simpleResponse.content?.toString());
         

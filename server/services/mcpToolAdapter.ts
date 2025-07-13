@@ -140,6 +140,23 @@ export class MCPToolAdapter {
           }
         },
       }),
+
+      new DynamicStructuredTool({
+        name: "delete_task",
+        description: "Delete a task from Google Tasks",
+        schema: z.object({
+          taskListId: z.string().describe("Task list ID containing the task"),
+          taskId: z.string().describe("Task ID to delete"),
+        }),
+        func: async ({ taskListId, taskId }) => {
+          try {
+            await mcpUnifiedServer.deleteTaskDirectly(taskListId, taskId);
+            return JSON.stringify({ status: "task_deleted", taskId }, null, 2);
+          } catch (error) {
+            return JSON.stringify({ error: `Failed to delete task: ${error.message}` });
+          }
+        },
+      }),
     ];
 
     this.isInitialized = true;

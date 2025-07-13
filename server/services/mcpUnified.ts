@@ -637,6 +637,41 @@ export class MCPUnifiedServer {
     };
   }
 
+  private async deleteTask(args: any) {
+    if (this.useMockData) {
+      const success = mockDataStore.deleteTask(args.taskId);
+      if (!success) {
+        throw new Error("Task not found");
+      }
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({ status: "task_deleted", taskId: args.taskId }, null, 2),
+          },
+        ],
+      };
+    }
+
+    if (!this.tasks) {
+      throw new Error("Tasks service not initialized");
+    }
+
+    await this.tasks.tasks.delete({
+      tasklist: args.taskListId,
+      task: args.taskId,
+    });
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({ status: "task_deleted", taskId: args.taskId }, null, 2),
+        },
+      ],
+    };
+  }
+
   // Formatting helpers
   private formatCalendarEvent(event: any) {
     return {
@@ -716,6 +751,14 @@ export class MCPUnifiedServer {
 
   async completeTaskDirectly(taskListId: string, taskId: string) {
     const result = await this.completeTask({
+      taskListId,
+      taskId,
+    });
+    return JSON.parse(result.content[0].text);
+  }
+
+  async deleteTaskDirectly(taskListId: string, taskId: string) {
+    const result = await this.deleteTask({
       taskListId,
       taskId,
     });
