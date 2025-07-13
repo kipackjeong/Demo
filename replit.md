@@ -27,7 +27,7 @@ This is a production-ready AI agent chatbot framework built with React frontend 
 - **Smart Detection**: Uses character pattern matching to identify language
 - **Fixed Tool Binding**: Corrected Azure OpenAI tool binding to use proper invoke parameters
 
-**Bug Fix (July 13, 2025 - 9:50 PM):** Fixed schedule formatting and task filtering:
+**Bug Fix (July 13, 2025 - 9:53 PM):** Fixed schedule formatting and variable reference errors:
 - **Direct Azure OpenAI**: Regular chat messages now use direct Azure OpenAI without complex tool binding
 - **Schedule Detection**: System detects schedule-related keywords and routes to Multi-Agent Orchestrator
 - **Smart Routing**: Schedule/calendar/task requests use appropriate tools, other messages use simple chat
@@ -38,6 +38,7 @@ This is a production-ready AI agent chatbot framework built with React frontend 
 - **Task Priority Organization**: When user asks for "all tasks", system shows tasks organized by priority (High/Medium/Low)
 - **Task-Only Requests**: Fixed issue where task-only requests were showing calendar headers
 - **Priority Detection**: System detects "all" keyword with tasks to enable priority-based organization
+- **Fixed Variable Reference**: Corrected calendarEvents undefined error by using calendarData parameter
 - **Reduced Timeouts**: Set 15-second timeout for regular chat messages with single retry
 - **Fallback Strategy**: Life Manager system remains as fallback for tool-required operations
 - **Improved Performance**: Regular conversations no longer experience 60-second timeouts

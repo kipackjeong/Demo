@@ -147,7 +147,7 @@ class SummaryAgent {
       
       // Language-specific headers and content
       // If showing all tasks without calendar events, skip the calendar header
-      const isTasksOnly = timeRange === 'all' && (!calendarEvents || calendarEvents.length === 0);
+      const isTasksOnly = timeRange === 'all' && (!calendarData || calendarData.length === 0);
       
       if (!isTasksOnly) {
         if (this.userLanguage === 'ko') {
