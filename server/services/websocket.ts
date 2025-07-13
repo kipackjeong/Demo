@@ -3,6 +3,7 @@ import type { IStorage } from "../storage";
 import { AgentService } from "./agent";
 import type { WebSocketMessage } from "@shared/schema";
 import { mcpServer } from "./mcpServer";
+import { mcpUnifiedServer } from "./mcpUnified";
 import { parse } from "cookie";
 import session from "express-session";
 
@@ -101,6 +102,7 @@ async function handleWebSocketMessage(
       // Configure MCP server and create new agent service with user context
       if (user?.googleAccessToken) {
         mcpServer.configureWithUserTokens(user);
+        mcpUnifiedServer.configureWithUserTokens(user);
         agentService = new AgentService(user);
         console.log("Configured services with Google tokens for user:", user.email);
         console.log("Token status - Access: Present, Refresh:", user.googleRefreshToken ? "Present" : "Missing (will use access token only)");
@@ -111,6 +113,13 @@ async function handleWebSocketMessage(
           hasRefreshToken: !!user?.googleRefreshToken
         });
         console.log("No Google access token - will use mock data");
+        // Configure MCP server to use mock data
+        mcpUnifiedServer.configure({
+          clientId: '',
+          clientSecret: '',
+          redirectUri: '',
+        }, true);
+        agentService = new AgentService(user);
       }
     }
     

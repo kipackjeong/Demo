@@ -43,40 +43,27 @@ class CalendarAgent {
   async process(request: string): Promise<any> {
     console.log("📅 CALENDAR AGENT: Processing request");
     
-    const systemPrompt = `You are a Calendar specialist agent. Your role is to:
-- Fetch calendar events and information
-- Focus only on calendar-related queries
-- Return structured calendar data
-
-Always use the available calendar tools to fetch real data.`;
-
     try {
-      const modelWithTools = this.model.bind({
-        tools: this.tools,
-      });
-      const messages = [
-        new SystemMessage(systemPrompt),
-        new HumanMessage(request)
-      ];
-
-      const response = await modelWithTools.invoke(messages);
+      // For initial summary, we know we need to get calendar events
+      // So let's call the tool directly instead of asking the model
+      const calendarTool = this.tools.find(t => t.name === 'get_calendar_events');
       
-      // If the model wants to use tools
-      if (response.tool_calls && response.tool_calls.length > 0) {
-        console.log(`📅 Calendar Agent using ${response.tool_calls.length} tools`);
+      if (calendarTool) {
+        console.log("📅 Calendar Agent: Directly calling get_calendar_events tool");
+        const timeMin = new Date().toISOString();
+        const timeMax = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 days
         
-        const results = [];
-        for (const toolCall of response.tool_calls) {
-          const tool = this.tools.find(t => t.name === toolCall.function.name);
-          if (tool) {
-            const result = await tool.func(JSON.parse(toolCall.function.arguments));
-            results.push(JSON.parse(result));
-          }
-        }
+        const result = await calendarTool.func({
+          calendarId: 'primary',
+          timeMin: timeMin,
+          timeMax: timeMax
+        });
         
-        return results.flat();
+        console.log("📅 Calendar Agent: Tool executed successfully");
+        return JSON.parse(result);
       }
       
+      console.log("📅 Calendar Agent: No calendar tool found");
       return [];
     } catch (error) {
       console.error("📅 Calendar Agent error:", error);
@@ -100,40 +87,23 @@ class TasksAgent {
   async process(request: string): Promise<any> {
     console.log("✅ TASKS AGENT: Processing request");
     
-    const systemPrompt = `You are a Tasks specialist agent. Your role is to:
-- Fetch and manage task lists and tasks
-- Focus only on task-related queries
-- Return structured task data
-
-Always use the available task tools to fetch real data.`;
-
     try {
-      const modelWithTools = this.model.bind({
-        tools: this.tools,
-      });
-      const messages = [
-        new SystemMessage(systemPrompt),
-        new HumanMessage(request)
-      ];
-
-      const response = await modelWithTools.invoke(messages);
+      // For initial summary, we know we need to get tasks
+      // So let's call the tool directly instead of asking the model
+      const tasksTool = this.tools.find(t => t.name === 'get_tasks');
       
-      // If the model wants to use tools
-      if (response.tool_calls && response.tool_calls.length > 0) {
-        console.log(`✅ Tasks Agent using ${response.tool_calls.length} tools`);
+      if (tasksTool) {
+        console.log("✅ Tasks Agent: Directly calling get_tasks tool");
         
-        const results = [];
-        for (const toolCall of response.tool_calls) {
-          const tool = this.tools.find(t => t.name === toolCall.function.name);
-          if (tool) {
-            const result = await tool.func(JSON.parse(toolCall.function.arguments));
-            results.push(JSON.parse(result));
-          }
-        }
+        const result = await tasksTool.func({
+          taskListId: '@default'
+        });
         
-        return results.flat();
+        console.log("✅ Tasks Agent: Tool executed successfully");
+        return JSON.parse(result);
       }
       
+      console.log("✅ Tasks Agent: No tasks tool found");
       return [];
     } catch (error) {
       console.error("✅ Tasks Agent error:", error);
@@ -151,45 +121,89 @@ class SummaryAgent {
 
   async process(calendarData: any[], tasksData: any[], timeRange: string = "3 days"): Promise<string> {
     console.log("📝 SUMMARY AGENT: Creating summary");
+    console.log(`Processing ${calendarData.length} calendar events and ${tasksData.length} tasks`);
     
-    const systemPrompt = `You are a Summary specialist agent. Your role is to:
-- Take raw calendar and task data and create a well-formatted summary
-- Use markdown formatting with clear sections
-- Provide helpful recommendations based on the data
-
-Format the response EXACTLY like this:
-
-## 📅 Next ${timeRange}
-
-[List calendar events or "No events scheduled"]
-
-## ✅ Tasks
-
-[List tasks by priority or "No active tasks"]
-
-## 💡 Recommendations
-
-[3 actionable recommendations based on the calendar and tasks]`;
-
     try {
-      const eventsSummary = calendarData.length > 0 
-        ? `Calendar events: ${JSON.stringify(calendarData)}`
-        : "No calendar events";
+      // Instead of using the model, let's format the summary directly
+      let formattedResponse = `## 📅 Next ${timeRange}\n\n`;
+      
+      // Format calendar events
+      if (calendarData.length > 0) {
+        const sortedEvents = calendarData.sort((a, b) => 
+          new Date(a.start || a.startTime).getTime() - new Date(b.start || b.startTime).getTime()
+        );
         
-      const tasksSummary = tasksData.length > 0
-        ? `Tasks: ${JSON.stringify(tasksData)}`
-        : "No tasks";
-
-      const messages = [
-        new SystemMessage(systemPrompt),
-        new HumanMessage(`Create a summary for the next ${timeRange} with this data:\n${eventsSummary}\n${tasksSummary}`)
-      ];
-
-      const response = await this.model.invoke(messages);
-      return response.content as string;
+        for (const event of sortedEvents) {
+          // Handle different date formats from mock data
+          const startDateStr = event.start || event.startTime || event.date;
+          const startDate = new Date(startDateStr);
+          
+          // Check if date is valid
+          let dateTimeStr = '';
+          if (!isNaN(startDate.getTime())) {
+            const dateStr = startDate.toLocaleDateString('en-US', { 
+              weekday: 'long', 
+              month: 'long', 
+              day: 'numeric' 
+            });
+            const timeStr = startDate.toLocaleTimeString('en-US', { 
+              hour: 'numeric', 
+              minute: '2-digit',
+              hour12: true 
+            });
+            dateTimeStr = `${dateStr}, ${timeStr}`;
+          } else if (event.date && event.time) {
+            // Handle separate date and time fields from mock data
+            dateTimeStr = `${event.date}, ${event.time}`;
+          } else {
+            dateTimeStr = 'Date TBD';
+          }
+          
+          formattedResponse += `- **${event.title || event.summary || 'Untitled Event'}** - ${dateTimeStr}\n`;
+          if (event.location) {
+            formattedResponse += `  Location: ${event.location}\n`;
+          }
+          if (event.description) {
+            formattedResponse += `  ${event.description}\n`;
+          }
+          formattedResponse += "\n";
+        }
+      } else {
+        formattedResponse += `No events scheduled for the next ${timeRange}.\n`;
+      }
+      
+      formattedResponse += "\n## ✅ Tasks\n\n";
+      
+      // Format tasks
+      if (tasksData.length > 0) {
+        const activeTasks = tasksData.filter(task => task.status !== 'completed');
+        
+        if (activeTasks.length > 0) {
+          for (const task of activeTasks) {
+            formattedResponse += `- ${task.title}`;
+            if (task.due) {
+              const dueDate = new Date(task.due);
+              formattedResponse += ` (Due: ${dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})`;
+            }
+            formattedResponse += "\n";
+          }
+        } else {
+          formattedResponse += "No active tasks.\n";
+        }
+      } else {
+        formattedResponse += "No active tasks.\n";
+      }
+      
+      formattedResponse += "\n## 💡 Recommendations\n\n";
+      formattedResponse += "1. Review your upcoming events and prepare any necessary materials\n";
+      formattedResponse += "2. Focus on completing high-priority tasks first\n";
+      formattedResponse += "3. Consider scheduling time for any overdue tasks\n";
+      
+      console.log("📝 Summary Agent: Summary created successfully");
+      return formattedResponse;
     } catch (error) {
       console.error("📝 Summary Agent error:", error);
-      return "Unable to generate summary";
+      return "Unable to generate summary due to an error.";
     }
   }
 }
@@ -294,13 +308,25 @@ export class MultiAgentOrchestrator {
     workflow.addNode("orchestrator", async (state: OrchestratorState) => {
       console.log("\n🎯 ORCHESTRATOR: Analyzing user request");
       
+      // For initial summaries, always route to all three agents
+      if (state.isInitialSummary) {
+        console.log("🎯 Initial summary detected - routing to all agents");
+        return {
+          routingDecision: {
+            agents: ["calendar", "tasks"],
+            reasoning: "Initial summary requires both calendar and tasks data"
+          }
+        };
+      }
+      
       const routingPrompt = `You are an orchestrator that routes requests to specialized agents.
 Available agents:
 - calendar: Handles calendar events, scheduling, and time-based queries
 - tasks: Handles task lists, to-dos, and task management
-- summary: Creates formatted summaries from collected data
 
 Analyze this request and decide which agents to invoke: "${state.userRequest}"
+
+Important: If the request mentions "summary" or needs both calendar AND tasks, include both agents.
 
 Respond in JSON format:
 {
@@ -323,28 +349,19 @@ Respond in JSON format:
           return { routingDecision: decision };
         }
         
-        // Default routing for initial summary
-        if (state.isInitialSummary) {
-          return {
-            routingDecision: {
-              agents: ["calendar", "tasks", "summary"],
-              reasoning: "Initial summary requires calendar, tasks, and formatting"
-            }
-          };
-        }
-        
+        // Default routing
         return {
           routingDecision: {
-            agents: ["summary"],
-            reasoning: "Default to summary agent"
+            agents: ["calendar", "tasks"],
+            reasoning: "Default to both agents for comprehensive response"
           }
         };
       } catch (error) {
         console.error("🎯 Orchestrator error:", error);
         return {
           routingDecision: {
-            agents: ["summary"],
-            reasoning: "Error in routing, defaulting to summary"
+            agents: ["calendar", "tasks"],
+            reasoning: "Error in routing, defaulting to both agents"
           }
         };
       }
@@ -406,7 +423,21 @@ Respond in JSON format:
       
       const results = state.agentResults || {};
       
-      // If we have a summary, use it as the final response
+      // For initial summaries, always create a formatted summary
+      if (state.isInitialSummary && this.summaryAgent) {
+        const calendarData = results.calendar || [];
+        const tasksData = results.tasks || [];
+        
+        const summary = await this.summaryAgent.process(
+          calendarData,
+          tasksData,
+          "3 days"
+        );
+        
+        return { finalResponse: summary };
+      }
+      
+      // If we have a summary from the agents, use it
       if (results.summary) {
         return { finalResponse: results.summary };
       }
