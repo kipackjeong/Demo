@@ -2,6 +2,7 @@ import { AzureChatOpenAI } from "@langchain/azure-openai";
 import { HumanMessage, SystemMessage, AIMessage } from "@langchain/core/messages";
 import { DefaultAzureCredential } from "@azure/identity";
 import { testDirectAzureOpenAI } from "./directAzureTest.js";
+import { OpenAIAssistantAgent } from "./openaiAssistant.js";
 import { IntelligentAgent } from "./intelligentAgent.js";
 import { LifeManagerSystemRefactored } from "./multiAgentRefactored.js";
 import { MultiAgentOrchestrator } from "./multiAgentOrchestrator.js";
@@ -9,16 +10,27 @@ import { MultiAgentOrchestrator } from "./multiAgentOrchestrator.js";
 export class AgentService {
   private azureOpenAI: AzureChatOpenAI | null = null;
   private conversationHistory: Map<string, Array<{ role: string; content: string }>> = new Map();
+  private openaiAssistant: OpenAIAssistantAgent | null = null;
   private intelligentAgent: IntelligentAgent;
   private lifeManagerSystem: LifeManagerSystemRefactored;
   private multiAgentOrchestrator: MultiAgentOrchestrator;
-  private useIntelligentAgent: boolean = true; // Flag to switch between systems
+  private useOpenAIAssistant: boolean = true; // Flag to switch between systems
 
   constructor(user?: any) {
     this.initializeAzureOpenAI();
     // Test direct connection
     this.testDirectConnection();
-    // Initialize all systems with user context
+    
+    // Try to initialize OpenAI Assistant first
+    try {
+      this.openaiAssistant = new OpenAIAssistantAgent(user);
+      console.log("OpenAI Assistant initialized successfully");
+    } catch (error) {
+      console.error("Failed to initialize OpenAI Assistant:", error);
+      this.useOpenAIAssistant = false;
+    }
+    
+    // Initialize fallback systems with user context
     this.intelligentAgent = new IntelligentAgent(user);
     this.lifeManagerSystem = new LifeManagerSystemRefactored(user);
     this.multiAgentOrchestrator = new MultiAgentOrchestrator(user);
@@ -107,8 +119,22 @@ export class AgentService {
     // Check if this is an initial summary request
     const isInitialSummary = userMessage.includes('[INITIAL_SUMMARY]');
     
-    // Use Intelligent Agent for all requests if enabled
-    if (this.useIntelligentAgent && this.intelligentAgent) {
+    // Use OpenAI Assistant for all requests if enabled
+    if (this.useOpenAIAssistant && this.openaiAssistant) {
+      try {
+        console.log("Using OpenAI Assistant for response generation");
+        const cleanMessage = userMessage.replace("[INITIAL_SUMMARY]", "").trim();
+        const response = await this.openaiAssistant.generateResponse(cleanMessage, sessionId, isInitialSummary);
+        console.log(`OpenAI Assistant response: "${response.substring(0, 100)}..."`);
+        return response;
+      } catch (error) {
+        console.error("OpenAI Assistant failed:", error);
+        // Fall back to Multi-Agent Orchestrator
+      }
+    }
+    
+    // Fallback to Intelligent Agent if OpenAI Assistant is not available
+    if (this.intelligentAgent) {
       try {
         console.log("Using Intelligent Agent for response generation");
         const cleanMessage = userMessage.replace("[INITIAL_SUMMARY]", "").trim();
@@ -392,9 +418,11 @@ export class AgentService {
         azureOpenAIInitialized: !!this.azureOpenAI,
         activeSessions: this.conversationHistory.size,
       },
+      openaiAssistant: this.openaiAssistant?.getStatus() || "not initialized",
       lifeManager: this.lifeManagerSystem?.getSystemStatus() || null,
       multiAgentOrchestrator: this.multiAgentOrchestrator?.getSystemStatus() || "not initialized",
-      activeSystem: this.useMultiAgent ? "multi-agent" : "life-manager",
+      activeSystem: this.useOpenAIAssistant ? "openai-assistant" : "multi-agent",
+      usingOpenAIAssistant: this.useOpenAIAssistant,
     };
   }
 }
