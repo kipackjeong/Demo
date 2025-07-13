@@ -7,6 +7,9 @@ import { mcpUnifiedServer } from "./mcpUnified";
 import { parse } from "cookie";
 import session from "express-session";
 
+// Store AgentService instances per session to maintain conversation history
+const agentServiceMap = new Map<string, AgentService>();
+
 export function setupWebSocketServer(wss: WebSocketServer, storage: IStorage) {
   // AgentService will be created per connection with user context
 
@@ -37,7 +40,7 @@ export function setupWebSocketServer(wss: WebSocketServer, storage: IStorage) {
       try {
         console.log("Received WebSocket message:", data.toString());
         const message: WebSocketMessage = JSON.parse(data.toString());
-        await handleWebSocketMessage(ws, message, storage, agentService, userId || undefined);
+        await handleWebSocketMessage(ws, message, storage, userId || undefined);
       } catch (error) {
         console.error("Error handling WebSocket message:", error);
         if (ws.readyState === WebSocket.OPEN) {
@@ -89,38 +92,52 @@ async function handleWebSocketMessage(
   ws: WebSocket,
   message: WebSocketMessage,
   storage: IStorage,
-  agentService: AgentService,
   userId?: number
 ) {
   if (message.type === "user_message") {
+    // Get or create AgentService instance for this session
+    let agentService = agentServiceMap.get(message.sessionId);
+    
     // Get user from message if provided
     let user = null;
     if (message.userId) {
       userId = message.userId;
       user = await storage.getUser(userId);
       
-      // Configure MCP server and create new agent service with user context
-      if (user?.googleAccessToken) {
-        mcpServer.configureWithUserTokens(user);
-        mcpUnifiedServer.configureWithUserTokens(user);
-        agentService = new AgentService(user);
-        console.log("Configured services with Google tokens for user:", user.email);
-        console.log("Token status - Access: Present, Refresh:", user.googleRefreshToken ? "Present" : "Missing (will use access token only)");
-      } else {
-        console.log("User tokens status:", {
-          email: user?.email,
-          hasAccessToken: !!user?.googleAccessToken,
-          hasRefreshToken: !!user?.googleRefreshToken
-        });
-        console.log("No Google access token - will use mock data");
-        // Configure MCP server to use mock data
-        mcpUnifiedServer.configure({
-          clientId: '',
-          clientSecret: '',
-          redirectUri: '',
-        }, true);
-        agentService = new AgentService(user);
+      // Only create a new agent service if we don't have one or if user context changed
+      if (!agentService) {
+        // Configure MCP server and create new agent service with user context
+        if (user?.googleAccessToken) {
+          mcpServer.configureWithUserTokens(user);
+          mcpUnifiedServer.configureWithUserTokens(user);
+          agentService = new AgentService(user);
+          console.log("Configured services with Google tokens for user:", user.email);
+          console.log("Token status - Access: Present, Refresh:", user.googleRefreshToken ? "Present" : "Missing (will use access token only)");
+        } else {
+          console.log("User tokens status:", {
+            email: user?.email,
+            hasAccessToken: !!user?.googleAccessToken,
+            hasRefreshToken: !!user?.googleRefreshToken
+          });
+          console.log("No Google access token - will use mock data");
+          // Configure MCP server to use mock data
+          mcpUnifiedServer.configure({
+            clientId: '',
+            clientSecret: '',
+            redirectUri: '',
+          }, true);
+          agentService = new AgentService(user);
+        }
+        
+        // Store the agent service for this session
+        agentServiceMap.set(message.sessionId, agentService);
+        console.log(`Created new AgentService for session: ${message.sessionId}`);
       }
+    } else if (!agentService) {
+      // No user context and no existing agent service, create a default one
+      agentService = new AgentService();
+      agentServiceMap.set(message.sessionId, agentService);
+      console.log(`Created default AgentService for session: ${message.sessionId}`);
     }
     
     // Store user message

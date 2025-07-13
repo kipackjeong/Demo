@@ -32,6 +32,7 @@ This is a production-ready AI agent chatbot framework built with React frontend 
   - Graceful fallback to mock data when APIs unavailable
   - Proper WebSocket streaming of formatted responses
   - Support for both initial summaries and regular conversations
+  - **Conversation State Management**: Full conversation history maintained across multiple turns per session
 
 ## User Preferences
 

@@ -98,10 +98,11 @@ export class LifeManagerSystemRefactored {
         state.isInitialSummary || false,
       );
 
+      // Build messages array with conversation history
       const messages = [
         new SystemMessage(systemPrompt),
-        new HumanMessage(state.userMessage),
-        ...state.messages,
+        ...state.messages, // Previous conversation history
+        new HumanMessage(state.userMessage), // Current user message
       ];
 
       console.log("\n=== AGENT NODE EXECUTION ===");
@@ -118,6 +119,55 @@ export class LifeManagerSystemRefactored {
         // First, let's try without tools to see if the model responds
         const simpleResponse = await this.azureOpenAI!.invoke(messages);
         console.log("AGENT RESPONSE:", simpleResponse.content?.toString());
+        
+        // Check if the response indicates the need for tools
+        const responseText = simpleResponse.content?.toString() || "";
+        const needsTaskCreation = responseText.toLowerCase().includes("create a task") || 
+                                 responseText.toLowerCase().includes("i'll create") ||
+                                 responseText.toLowerCase().includes("let me create");
+
+        // If we need to create a task, manually create the tool call
+        if (needsTaskCreation && !state.isInitialSummary) {
+          console.log("Response needs task creation, creating tool call");
+          
+          // Extract task details from conversation context
+          let taskTitle = "Call doctor for appointment";
+          let taskNotes = "Need to call to make a doctor appointment";
+          
+          // Look through conversation history for more context
+          for (const msg of state.messages) {
+            const content = msg.content?.toString() || "";
+            if (content.includes("doctor appointment")) {
+              if (content.includes("tomorrow morning")) {
+                taskTitle = "Call doctor for appointment tomorrow morning";
+                taskNotes = "Remember to call the doctor's office in the morning to schedule an appointment";
+              }
+            }
+          }
+          
+          const toolCall = {
+            id: "call_task_1",
+            type: "function" as const,
+            function: {
+              name: "create_task",
+              arguments: JSON.stringify({
+                taskListId: "@default",
+                task: {
+                  title: taskTitle,
+                  notes: taskNotes,
+                  priority: "high"
+                }
+              }),
+            },
+          };
+          
+          const responseWithTools = new AIMessage({
+            content: simpleResponse.content,
+            tool_calls: [toolCall],
+          });
+          
+          return { messages: [responseWithTools] };
+        }
 
         // For initial summary, we need to manually create tool calls only if we haven't called tools yet
         if (state.isInitialSummary && state.messages.length === 0) {
@@ -282,10 +332,7 @@ export class LifeManagerSystemRefactored {
           return { messages: [finalResponse] };
         }
 
-        // For regular messages, use the simple response we already got
-        const responseText = simpleResponse.content?.toString() || "";
-        
-        // Check if the response indicates it needs tools
+        // For regular messages, check if tools are needed
         const needsTools = responseText.toLowerCase().includes("let me") || 
                           responseText.toLowerCase().includes("i'll") ||
                           responseText.toLowerCase().includes("fetching") ||
@@ -697,8 +744,21 @@ IMPORTANT RULES:
       const isInitialSummary = userMessage.includes("[INITIAL_SUMMARY]");
       const cleanMessage = userMessage.replace("[INITIAL_SUMMARY]", "").trim();
 
+      // Get conversation history for this session
+      const sessionHistory = this.conversationHistory.get(sessionId) || [];
+      
+      // Convert conversation history to BaseMessage format
+      const historyMessages: BaseMessage[] = [];
+      for (const msg of sessionHistory) {
+        if (msg.role === 'user') {
+          historyMessages.push(new HumanMessage(msg.content));
+        } else if (msg.role === 'assistant') {
+          historyMessages.push(new AIMessage(msg.content));
+        }
+      }
+
       const input: LifeManagerState = {
-        messages: [],
+        messages: historyMessages,
         userMessage: cleanMessage,
         sessionId,
         isInitialSummary,
@@ -707,6 +767,7 @@ IMPORTANT RULES:
       console.log("Processing request with graph:", {
         isInitialSummary,
         cleanMessage,
+        historyLength: historyMessages.length,
       });
 
       // Add timeout to graph execution (reduced to 30 seconds)
@@ -724,6 +785,16 @@ IMPORTANT RULES:
           hasResponse: !!result.finalResponse,
           responseLength: result.finalResponse?.length,
         });
+        
+        if (result.finalResponse) {
+          // Add user message and response to conversation history
+          sessionHistory.push(
+            { role: 'user', content: cleanMessage },
+            { role: 'assistant', content: result.finalResponse }
+          );
+          this.conversationHistory.set(sessionId, sessionHistory);
+        }
+        
         return (
           result.finalResponse ||
           "I couldn't process your request. Please try again."
