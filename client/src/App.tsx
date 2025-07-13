@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
 import ChatPage from "@/pages/chat";
 import GoogleSetup from "@/pages/google-setup";
+import GoogleTokenSetup from "@/pages/google-token-setup";
 import Home from "@/pages/home";
 import AuthPage from "@/pages/auth";
 
@@ -25,6 +26,7 @@ function Router() {
     <Switch>
       <Route path="/auth" component={AuthPage} />
       <Route path="/google-setup" component={GoogleSetup} />
+      <Route path="/google-token-setup" component={GoogleTokenSetup} />
       {isAuthenticated ? (
         <>
           <Route path="/" component={Home} />

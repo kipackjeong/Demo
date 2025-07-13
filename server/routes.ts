@@ -53,6 +53,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Manually set refresh token (for testing/debugging)
+  app.post("/api/auth/google/set-refresh-token", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as User;
+      const { refreshToken } = req.body;
+      
+      if (!refreshToken) {
+        return res.status(400).json({ error: "Refresh token is required" });
+      }
+      
+      // Update user with refresh token
+      await storage.updateUser(user.id, {
+        googleRefreshToken: refreshToken
+      });
+      
+      console.log(`Manually set refresh token for user ${user.email}`);
+      res.json({ message: "Refresh token set successfully" });
+    } catch (error) {
+      console.error("Error setting refresh token:", error);
+      res.status(500).json({ error: "Failed to set refresh token" });
+    }
+  });
+
   app.post("/api/auth/login", async (req, res, next) => {
     const passport = require("passport");
     passport.authenticate("local", (err: any, user: any, info: any) => {
@@ -122,6 +145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     if (forceConsent) {
       authOptions.prompt = 'consent';
+      authOptions.approval_prompt = 'force'; // This forces refresh token
       authOptions.state = 'force_consent';
     } else {
       authOptions.prompt = 'select_account';

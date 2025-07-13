@@ -66,6 +66,14 @@ export function GoogleAuthWarning({ onReauthorize }: GoogleAuthWarningProps) {
           >
             Try Again Without Revoking
           </Button>
+          <Button 
+            onClick={() => window.location.href = "/google-token-setup"}
+            variant="outline"
+            size="sm"
+            disabled={isRevoking}
+          >
+            Manual Token Setup
+          </Button>
         </div>
       </AlertDescription>
     </Alert>
