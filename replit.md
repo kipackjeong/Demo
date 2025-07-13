@@ -27,6 +27,13 @@ This is a production-ready AI agent chatbot framework built with React frontend 
 - **Smart Detection**: Uses character pattern matching to identify language
 - **Fixed Tool Binding**: Corrected Azure OpenAI tool binding to use proper invoke parameters
 
+**Major Refactor (July 13, 2025 - 10:16 PM):** Removed hardcoded action routing:
+- **Intelligent Tool Usage**: AI agent now always has access to all tools and decides when to use them
+- **Removed Hardcoded Logic**: Eliminated all hardcoded action detection and manual tool call creation
+- **Enhanced System Prompt**: Updated prompt to guide AI on intelligent tool selection based on user intent
+- **Simplified Architecture**: Cleaned up over 200 lines of redundant hardcoded logic
+- **Better User Experience**: AI can now handle complex requests requiring multiple tools automatically
+
 **Bug Fix (July 13, 2025 - 10:16 PM):** Fixed task organization by list vs priority:
 - **Task List Organization**: Added detection for "by list" or "organized by list" in user requests
 - **Summary Agent Enhancement**: Updated Summary Agent to accept original user request for context
@@ -132,7 +139,10 @@ This is a production-ready AI agent chatbot framework built with React frontend 
 - **LangChain Integration**: Full Azure OpenAI integration with LangChain framework
 - **Azure OpenAI Service**: Production-ready AI responses using Azure OpenAI GPT models
 - **Azure AD Authentication**: Uses DefaultAzureCredential for secure authentication
-- **Multi-Agent System**: LangGraph-powered life management with specialized agents
+- **Intelligent Agent System**: Primary system that intelligently selects tools based on user requests
+- **Granular MCP Tools**: Comprehensive set of tools for specific tasks (get_today_events, get_this_year_events, get_high_priority_tasks, etc.)
+- **Dynamic Tool Selection**: AI agent autonomously chooses appropriate tools based on user intent
+- **Multi-Agent Fallback**: LangGraph-powered life management as backup system
 - **Conversation History**: Per-session conversation context and memory management
 - **Streaming Response**: Word-by-word response delivery for natural interaction
 - **Fallback Handling**: Graceful degradation when AI service is unavailable

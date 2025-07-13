@@ -2,21 +2,24 @@ import { AzureChatOpenAI } from "@langchain/azure-openai";
 import { HumanMessage, SystemMessage, AIMessage } from "@langchain/core/messages";
 import { DefaultAzureCredential } from "@azure/identity";
 import { testDirectAzureOpenAI } from "./directAzureTest.js";
+import { IntelligentAgent } from "./intelligentAgent.js";
 import { LifeManagerSystemRefactored } from "./multiAgentRefactored.js";
 import { MultiAgentOrchestrator } from "./multiAgentOrchestrator.js";
 
 export class AgentService {
   private azureOpenAI: AzureChatOpenAI | null = null;
   private conversationHistory: Map<string, Array<{ role: string; content: string }>> = new Map();
+  private intelligentAgent: IntelligentAgent;
   private lifeManagerSystem: LifeManagerSystemRefactored;
   private multiAgentOrchestrator: MultiAgentOrchestrator;
-  private useMultiAgent: boolean = true; // Flag to switch between systems
+  private useIntelligentAgent: boolean = true; // Flag to switch between systems
 
   constructor(user?: any) {
     this.initializeAzureOpenAI();
     // Test direct connection
     this.testDirectConnection();
-    // Initialize both systems with user context
+    // Initialize all systems with user context
+    this.intelligentAgent = new IntelligentAgent(user);
     this.lifeManagerSystem = new LifeManagerSystemRefactored(user);
     this.multiAgentOrchestrator = new MultiAgentOrchestrator(user);
   }
@@ -104,8 +107,22 @@ export class AgentService {
     // Check if this is an initial summary request
     const isInitialSummary = userMessage.includes('[INITIAL_SUMMARY]');
     
+    // Use Intelligent Agent for all requests if enabled
+    if (this.useIntelligentAgent && this.intelligentAgent) {
+      try {
+        console.log("Using Intelligent Agent for response generation");
+        const cleanMessage = userMessage.replace("[INITIAL_SUMMARY]", "").trim();
+        const response = await this.intelligentAgent.generateResponse(cleanMessage, isInitialSummary);
+        console.log(`Intelligent Agent response: "${response.substring(0, 100)}..."`);
+        return response;
+      } catch (error) {
+        console.error("Intelligent Agent failed:", error);
+        // Fall back to Multi-Agent Orchestrator
+      }
+    }
+    
     // Try using Multi-Agent Orchestrator for initial summaries
-    if (this.useMultiAgent && isInitialSummary && this.multiAgentOrchestrator) {
+    if (isInitialSummary && this.multiAgentOrchestrator) {
       try {
         console.log("Using Multi-Agent Orchestrator for initial summary");
         const response = await this.multiAgentOrchestrator.process(userMessage, sessionId);
