@@ -4,13 +4,14 @@
 
 This is a production-ready AI agent chatbot framework built with React frontend and Node.js backend, now powered by Azure OpenAI through LangChain. The system enables real-time, bidirectional streaming communication between users and AI agents through WebSocket connections. The framework provides full conversation history, context awareness, and graceful fallback handling.
 
-**Latest Update (July 13, 2025):** Now features Model Context Protocol (MCP) integration with Google Calendar and Google Tasks APIs, allowing the AI to interact with real Google services instead of mock data.
+**Latest Update (July 13, 2025):** Now features Model Context Protocol (MCP) integration with Google Calendar and Google Tasks APIs, allowing the AI to interact with real Google services instead of mock data. Added seamless Replit OAuth authentication with protected chat interface and user-specific data isolation.
 
 ## User Preferences
 
 - Preferred communication style: Simple, everyday language.
 - Initial AI greeting: Concise markdown-formatted weekly summary with Calendar, Tasks, and Recommendations sections
 - Regular conversations: Natural language without markdown formatting
+- Authentication: Seamless Replit OAuth integration with protected chat interface
 
 ## System Architecture
 
@@ -32,6 +33,8 @@ This is a production-ready AI agent chatbot framework built with React frontend 
 - **Drizzle ORM**: Type-safe SQL ORM with PostgreSQL support
 - **Neon Database**: Serverless PostgreSQL database
 - **Schema Design**: Users, chat sessions, and messages with proper relationships
+- **Authentication Tables**: Session storage and user management for Replit OAuth
+- **Data Isolation**: User-specific chat sessions and message history
 
 ## Key Components
 
@@ -60,7 +63,10 @@ This is a production-ready AI agent chatbot framework built with React frontend 
 - **Fallback Handling**: Graceful fallback to mock data when Google APIs are unavailable
 
 ### User Interface
-- **Chat Interface**: Clean, modern chat UI with message bubbles
+- **Authentication Flow**: Seamless Replit OAuth with landing and home pages
+- **Protected Chat Interface**: Clean, modern chat UI with message bubbles
+- **User Dashboard**: Personalized home page with quick actions and user profile
+- **Landing Page**: Marketing page with feature highlights for unauthenticated users
 - **Typing Indicators**: Visual feedback during response generation
 - **Theme Support**: Light/dark mode with persistent preferences
 - **Responsive Design**: Mobile-first approach with desktop optimization
@@ -73,14 +79,16 @@ This is a production-ready AI agent chatbot framework built with React frontend 
 
 ## Data Flow
 
-1. **User Input**: User types message in chat interface
-2. **WebSocket Transmission**: Message sent to server via WebSocket
-3. **Session Management**: Server creates/retrieves chat session
-4. **Message Storage**: User message stored in database
-5. **Agent Processing**: AI agent generates response based on input
-6. **Streaming Response**: Response streamed back token-by-token
-7. **UI Update**: Frontend updates chat interface in real-time
-8. **Message Persistence**: Complete response stored in database
+1. **User Authentication**: User signs in via Replit OAuth
+2. **Session Creation**: Authenticated user session established
+3. **User Input**: User types message in protected chat interface
+4. **WebSocket Transmission**: Message sent to server via WebSocket
+5. **Session Management**: Server creates/retrieves user-specific chat session
+6. **Message Storage**: User message stored in database with user ID
+7. **Agent Processing**: AI agent generates response based on input and user context
+8. **Streaming Response**: Response streamed back token-by-token
+9. **UI Update**: Frontend updates chat interface in real-time
+10. **Message Persistence**: Complete response stored in database with user association
 
 ## External Dependencies
 
@@ -153,3 +161,25 @@ User Request → WebSocket → Multi-Agent System → MCP Server → Google APIs
 ```
 
 The system automatically falls back to mock data when Google APIs are unavailable, ensuring consistent functionality during development and testing.
+
+## Authentication System
+
+### Replit OAuth Integration
+- **Seamless Login**: One-click authentication with Replit accounts
+- **Session Management**: Secure session storage with PostgreSQL backend
+- **User Profiles**: Automatic user profile creation with email, name, and avatar
+- **Protected Routes**: Chat interface and user-specific features require authentication
+- **Landing Page**: Marketing page for unauthenticated users with feature highlights
+- **User Dashboard**: Personalized home page with quick actions and user profile
+
+### Security Features
+- **Session Expiration**: Automatic token refresh and session management
+- **Data Isolation**: User-specific chat sessions and message history
+- **Secure Cookies**: HTTPOnly and secure cookie configuration
+- **CSRF Protection**: Built-in CSRF protection via session middleware
+
+### User Experience
+- **Automatic Redirects**: Seamless redirect to intended page after login
+- **Loading States**: Smooth loading indicators during authentication
+- **Error Handling**: Clear error messages and fallback behaviors
+- **Logout Flow**: Clean logout with proper session cleanup

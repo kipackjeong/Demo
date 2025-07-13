@@ -2,139 +2,132 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { LogOut, MessageSquare, User } from "lucide-react";
+import { MessageCircle, Calendar, CheckSquare, Settings, LogOut } from "lucide-react";
 import { Link } from "wouter";
 
 export default function Home() {
   const { user, isLoading } = useAuth();
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null; // This should be handled by the router
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center space-x-4">
             <Avatar className="h-12 w-12">
-              <AvatarImage src={user.profileImageUrl || ""} alt={user.firstName || "User"} />
+              <AvatarImage src={user?.profileImageUrl || undefined} />
               <AvatarFallback>
-                {user.firstName?.[0] || user.email?.[0] || "U"}
+                {user?.firstName?.[0] || user?.email?.[0] || 'U'}
               </AvatarFallback>
             </Avatar>
             <div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                Welcome back, {user.firstName || user.email || "User"}!
+                Welcome back, {user?.firstName || 'User'}!
               </h1>
               <p className="text-gray-600 dark:text-gray-300">
-                Ready to manage your life with AI assistance
+                Your personal AI assistant is ready to help.
               </p>
             </div>
           </div>
-          <Button
-            variant="outline"
-            onClick={() => window.location.href = "/api/logout"}
-            className="flex items-center space-x-2"
-          >
-            <LogOut className="h-4 w-4" />
-            <span>Logout</span>
-          </Button>
+          <div className="flex items-center space-x-4">
+            <Button
+              variant="outline"
+              onClick={() => window.location.href = '/api/logout'}
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out
+            </Button>
+          </div>
         </div>
 
-        {/* Main Content */}
-        <div className="grid md:grid-cols-2 gap-8">
-          {/* Start Chat Card */}
-          <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-2 border-blue-200 dark:border-blue-800">
-            <CardHeader>
-              <MessageSquare className="h-8 w-8 text-blue-600 mb-2" />
-              <CardTitle>Start a Conversation</CardTitle>
-              <CardDescription>
-                Begin chatting with your Life Manager AI assistant
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                Ask me about your schedule, tasks, or any life management questions. I'm here to help you stay organized and productive.
-              </p>
-              <Link href="/chat">
-                <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">
-                  Open Chat
-                </Button>
-              </Link>
-            </CardContent>
+        {/* Main Dashboard */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+            <Link href="/chat">
+              <CardHeader className="text-center">
+                <MessageCircle className="h-12 w-12 mx-auto mb-4 text-blue-600" />
+                <CardTitle>Start Chat</CardTitle>
+                <CardDescription>
+                  Begin a conversation with your AI assistant
+                </CardDescription>
+              </CardHeader>
+            </Link>
           </Card>
 
-          {/* Profile Card */}
-          <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
-            <CardHeader>
-              <User className="h-8 w-8 text-green-600 mb-2" />
-              <CardTitle>Your Profile</CardTitle>
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+            <Link href="/google-setup">
+              <CardHeader className="text-center">
+                <Settings className="h-12 w-12 mx-auto mb-4 text-gray-600" />
+                <CardTitle>Google Setup</CardTitle>
+                <CardDescription>
+                  Configure Google Calendar and Tasks integration
+                </CardDescription>
+              </CardHeader>
+            </Link>
+          </Card>
+
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+            <CardHeader className="text-center">
+              <Calendar className="h-12 w-12 mx-auto mb-4 text-green-600" />
+              <CardTitle>Calendar</CardTitle>
               <CardDescription>
-                Your account information and preferences
+                View and manage your calendar events
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Name:</span>
-                  <span className="text-sm font-medium">
-                    {user.firstName && user.lastName 
-                      ? `${user.firstName} ${user.lastName}`
-                      : user.firstName || user.email || "User"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Email:</span>
-                  <span className="text-sm font-medium">{user.email || "N/A"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Account:</span>
-                  <span className="text-sm font-medium">Connected</span>
-                </div>
-              </div>
-            </CardContent>
+          </Card>
+
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+            <CardHeader className="text-center">
+              <CheckSquare className="h-12 w-12 mx-auto mb-4 text-purple-600" />
+              <CardTitle>Tasks</CardTitle>
+              <CardDescription>
+                Organize and track your tasks
+              </CardDescription>
+            </CardHeader>
           </Card>
         </div>
 
         {/* Quick Actions */}
-        <div className="mt-12">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
-            What can I help you with today?
-          </h2>
-          <div className="grid md:grid-cols-3 gap-4">
-            <Card className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm hover:bg-white/80 dark:hover:bg-gray-800/80 transition-colors cursor-pointer">
-              <CardContent className="p-4">
-                <p className="text-sm text-gray-700 dark:text-gray-300">
-                  "Show me my schedule for this week"
-                </p>
-              </CardContent>
-            </Card>
-            <Card className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm hover:bg-white/80 dark:hover:bg-gray-800/80 transition-colors cursor-pointer">
-              <CardContent className="p-4">
-                <p className="text-sm text-gray-700 dark:text-gray-300">
-                  "What tasks do I need to complete?"
-                </p>
-              </CardContent>
-            </Card>
-            <Card className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm hover:bg-white/80 dark:hover:bg-gray-800/80 transition-colors cursor-pointer">
-              <CardContent className="p-4">
-                <p className="text-sm text-gray-700 dark:text-gray-300">
-                  "Help me plan my day"
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Quick Actions</CardTitle>
+            <CardDescription>
+              Get started with these common tasks
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Link href="/chat">
+                <Button variant="outline" className="w-full justify-start">
+                  <MessageCircle className="h-4 w-4 mr-2" />
+                  Ask AI for today's summary
+                </Button>
+              </Link>
+              <Link href="/chat">
+                <Button variant="outline" className="w-full justify-start">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Schedule a meeting
+                </Button>
+              </Link>
+              <Link href="/chat">
+                <Button variant="outline" className="w-full justify-start">
+                  <CheckSquare className="h-4 w-4 mr-2" />
+                  Create a task
+                </Button>
+              </Link>
+              <Link href="/google-setup">
+                <Button variant="outline" className="w-full justify-start">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Setup Google APIs
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
