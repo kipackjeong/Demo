@@ -146,34 +146,43 @@ class SummaryAgent {
       let formattedResponse = '';
       
       // Language-specific headers and content
-      if (this.userLanguage === 'ko') {
-        const rangeText = timeRange === '3 days' ? '3일간의' : 
-                         timeRange === 'week' ? '이번 주' :
-                         timeRange === 'today' ? '오늘의' :
-                         timeRange === 'tomorrow' ? '내일의' :
-                         timeRange === 'month' ? '이번 달' : timeRange;
-        formattedResponse = `## 📅 ${rangeText} 일정\n\n`;
-      } else if (this.userLanguage === 'ja') {
-        const rangeText = timeRange === '3 days' ? '3日間' :
-                         timeRange === 'week' ? '今週' :
-                         timeRange === 'today' ? '今日' :
-                         timeRange === 'tomorrow' ? '明日' :
-                         timeRange === 'month' ? '今月' : timeRange;
-        formattedResponse = `## 📅 ${rangeText}の予定\n\n`;
-      } else if (this.userLanguage === 'zh') {
-        const rangeText = timeRange === '3 days' ? '3天' :
-                         timeRange === 'week' ? '本周' :
-                         timeRange === 'today' ? '今天' :
-                         timeRange === 'tomorrow' ? '明天' :
-                         timeRange === 'month' ? '本月' : timeRange;
-        formattedResponse = `## 📅 ${rangeText}的日程\n\n`;
-      } else {
-        const rangeText = timeRange === '3 days' ? 'Next 3 days' :
-                         timeRange === 'week' ? 'This week' :
-                         timeRange === 'today' ? 'Today' :
-                         timeRange === 'tomorrow' ? 'Tomorrow' :
-                         timeRange === 'month' ? 'This month' : timeRange;
-        formattedResponse = `## 📅 ${rangeText}\n\n`;
+      // If showing all tasks without calendar events, skip the calendar header
+      const isTasksOnly = timeRange === 'all' && (!calendarEvents || calendarEvents.length === 0);
+      
+      if (!isTasksOnly) {
+        if (this.userLanguage === 'ko') {
+          const rangeText = timeRange === '3 days' ? '3일간의' : 
+                           timeRange === 'week' ? '이번 주' :
+                           timeRange === 'today' ? '오늘의' :
+                           timeRange === 'tomorrow' ? '내일의' :
+                           timeRange === 'month' ? '이번 달' : 
+                           timeRange === 'all' ? '전체' : timeRange;
+          formattedResponse = `## 📅 ${rangeText} 일정\n\n`;
+        } else if (this.userLanguage === 'ja') {
+          const rangeText = timeRange === '3 days' ? '3日間' :
+                           timeRange === 'week' ? '今週' :
+                           timeRange === 'today' ? '今日' :
+                           timeRange === 'tomorrow' ? '明日' :
+                           timeRange === 'month' ? '今月' :
+                           timeRange === 'all' ? '全体' : timeRange;
+          formattedResponse = `## 📅 ${rangeText}の予定\n\n`;
+        } else if (this.userLanguage === 'zh') {
+          const rangeText = timeRange === '3 days' ? '3天' :
+                           timeRange === 'week' ? '本周' :
+                           timeRange === 'today' ? '今天' :
+                           timeRange === 'tomorrow' ? '明天' :
+                           timeRange === 'month' ? '本月' :
+                           timeRange === 'all' ? '全部' : timeRange;
+          formattedResponse = `## 📅 ${rangeText}的日程\n\n`;
+        } else {
+          const rangeText = timeRange === '3 days' ? 'Next 3 days' :
+                           timeRange === 'week' ? 'This week' :
+                           timeRange === 'today' ? 'Today' :
+                           timeRange === 'tomorrow' ? 'Tomorrow' :
+                           timeRange === 'month' ? 'This month' :
+                           timeRange === 'all' ? 'All' : timeRange;
+          formattedResponse = `## 📅 ${rangeText}\n\n`;
+        }
       }
       
       // Format calendar events
@@ -264,26 +273,111 @@ class SummaryAgent {
                          "\n## ✅ Tasks\n\n";
       formattedResponse += tasksHeader;
       
-      // Format tasks
+      // Format tasks - organize by priority if timeRange is "all"
       if (tasksData.length > 0) {
         const activeTasks = tasksData.filter(task => task.status !== 'completed');
         
         if (activeTasks.length > 0) {
-          for (const task of activeTasks) {
-            formattedResponse += `- ${task.title}`;
-            if (task.due) {
-              const dueDate = new Date(task.due);
-              const locale = this.userLanguage === 'ko' ? 'ko-KR' : 
-                           this.userLanguage === 'ja' ? 'ja-JP' :
-                           this.userLanguage === 'zh' ? 'zh-CN' : 'en-US';
-              
-              const dueLabel = this.userLanguage === 'ko' ? '마감일' :
-                              this.userLanguage === 'ja' ? '期限' :
-                              this.userLanguage === 'zh' ? '截止日期' : 'Due';
-              
-              formattedResponse += ` (${dueLabel}: ${dueDate.toLocaleDateString(locale, { month: 'short', day: 'numeric' })})`;
+          if (timeRange === 'all') {
+            // Organize tasks by priority
+            const highPriorityTasks = activeTasks.filter(task => task.priority === 'high');
+            const mediumPriorityTasks = activeTasks.filter(task => task.priority === 'medium');
+            const lowPriorityTasks = activeTasks.filter(task => task.priority === 'low' || !task.priority);
+            
+            // High priority
+            if (highPriorityTasks.length > 0) {
+              const highLabel = this.userLanguage === 'ko' ? '### 🔴 높은 우선순위\n' :
+                               this.userLanguage === 'ja' ? '### 🔴 高優先度\n' :
+                               this.userLanguage === 'zh' ? '### 🔴 高优先级\n' :
+                               '### 🔴 High Priority\n';
+              formattedResponse += highLabel;
+              for (const task of highPriorityTasks) {
+                formattedResponse += `- ${task.title}`;
+                if (task.due) {
+                  const dueDate = new Date(task.due);
+                  const locale = this.userLanguage === 'ko' ? 'ko-KR' : 
+                               this.userLanguage === 'ja' ? 'ja-JP' :
+                               this.userLanguage === 'zh' ? 'zh-CN' : 'en-US';
+                  
+                  const dueLabel = this.userLanguage === 'ko' ? '마감일' :
+                                  this.userLanguage === 'ja' ? '期限' :
+                                  this.userLanguage === 'zh' ? '截止日期' : 'Due';
+                  
+                  formattedResponse += ` (${dueLabel}: ${dueDate.toLocaleDateString(locale, { month: 'short', day: 'numeric' })})`;
+                }
+                formattedResponse += "\n";
+              }
+              formattedResponse += "\n";
             }
-            formattedResponse += "\n";
+            
+            // Medium priority
+            if (mediumPriorityTasks.length > 0) {
+              const mediumLabel = this.userLanguage === 'ko' ? '### 🟡 중간 우선순위\n' :
+                                 this.userLanguage === 'ja' ? '### 🟡 中優先度\n' :
+                                 this.userLanguage === 'zh' ? '### 🟡 中优先级\n' :
+                                 '### 🟡 Medium Priority\n';
+              formattedResponse += mediumLabel;
+              for (const task of mediumPriorityTasks) {
+                formattedResponse += `- ${task.title}`;
+                if (task.due) {
+                  const dueDate = new Date(task.due);
+                  const locale = this.userLanguage === 'ko' ? 'ko-KR' : 
+                               this.userLanguage === 'ja' ? 'ja-JP' :
+                               this.userLanguage === 'zh' ? 'zh-CN' : 'en-US';
+                  
+                  const dueLabel = this.userLanguage === 'ko' ? '마감일' :
+                                  this.userLanguage === 'ja' ? '期限' :
+                                  this.userLanguage === 'zh' ? '截止日期' : 'Due';
+                  
+                  formattedResponse += ` (${dueLabel}: ${dueDate.toLocaleDateString(locale, { month: 'short', day: 'numeric' })})`;
+                }
+                formattedResponse += "\n";
+              }
+              formattedResponse += "\n";
+            }
+            
+            // Low priority
+            if (lowPriorityTasks.length > 0) {
+              const lowLabel = this.userLanguage === 'ko' ? '### 🟢 낮은 우선순위\n' :
+                              this.userLanguage === 'ja' ? '### 🟢 低優先度\n' :
+                              this.userLanguage === 'zh' ? '### 🟢 低优先级\n' :
+                              '### 🟢 Low Priority\n';
+              formattedResponse += lowLabel;
+              for (const task of lowPriorityTasks) {
+                formattedResponse += `- ${task.title}`;
+                if (task.due) {
+                  const dueDate = new Date(task.due);
+                  const locale = this.userLanguage === 'ko' ? 'ko-KR' : 
+                               this.userLanguage === 'ja' ? 'ja-JP' :
+                               this.userLanguage === 'zh' ? 'zh-CN' : 'en-US';
+                  
+                  const dueLabel = this.userLanguage === 'ko' ? '마감일' :
+                                  this.userLanguage === 'ja' ? '期限' :
+                                  this.userLanguage === 'zh' ? '截止日期' : 'Due';
+                  
+                  formattedResponse += ` (${dueLabel}: ${dueDate.toLocaleDateString(locale, { month: 'short', day: 'numeric' })})`;
+                }
+                formattedResponse += "\n";
+              }
+            }
+          } else {
+            // Regular task list without priority grouping
+            for (const task of activeTasks) {
+              formattedResponse += `- ${task.title}`;
+              if (task.due) {
+                const dueDate = new Date(task.due);
+                const locale = this.userLanguage === 'ko' ? 'ko-KR' : 
+                             this.userLanguage === 'ja' ? 'ja-JP' :
+                             this.userLanguage === 'zh' ? 'zh-CN' : 'en-US';
+                
+                const dueLabel = this.userLanguage === 'ko' ? '마감일' :
+                                this.userLanguage === 'ja' ? '期限' :
+                                this.userLanguage === 'zh' ? '截止日期' : 'Due';
+                
+                formattedResponse += ` (${dueLabel}: ${dueDate.toLocaleDateString(locale, { month: 'short', day: 'numeric' })})`;
+              }
+              formattedResponse += "\n";
+            }
           }
         } else {
           const noTasksText = this.userLanguage === 'ko' ? "진행 중인 할 일이 없습니다." :
@@ -583,8 +677,13 @@ Respond in JSON format:
         this.summaryAgent.setUserLanguage(state.userRequest);
         
         // Determine time range based on request
+        // If only tasks are requested (no calendar data), use "all" timeRange
         let timeRange = "week";
-        if (state.userRequest.toLowerCase().includes("today")) {
+        const isTasksOnly = tasksData.length > 0 && calendarData.length === 0;
+        
+        if (state.userRequest.toLowerCase().includes("all") && isTasksOnly) {
+          timeRange = "all";
+        } else if (state.userRequest.toLowerCase().includes("today")) {
           timeRange = "today";
         } else if (state.userRequest.toLowerCase().includes("tomorrow")) {
           timeRange = "tomorrow";
