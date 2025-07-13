@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "wouter";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,7 +12,7 @@ import { AlertCircle, CheckCircle } from "lucide-react";
 
 export default function GoogleTokenSetup() {
   const [refreshToken, setRefreshToken] = useState("");
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
 
   const updateTokensMutation = useMutation({
@@ -24,7 +24,7 @@ export default function GoogleTokenSetup() {
         title: "Success",
         description: "Google refresh token has been set. Redirecting to chat...",
       });
-      setTimeout(() => navigate("/chat"), 1000);
+      setTimeout(() => setLocation("/chat"), 1000);
     },
     onError: (error: Error) => {
       toast({
@@ -97,7 +97,7 @@ export default function GoogleTokenSetup() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate("/chat")}
+                onClick={() => setLocation("/chat")}
               >
                 Back to Chat
               </Button>
