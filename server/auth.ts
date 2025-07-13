@@ -91,27 +91,21 @@ export function setupAuth(app: Express) {
         clientID: process.env.GOOGLE_CLIENT_ID!,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
         callbackURL: getCallbackURL(),
-        scope: [
-          'profile',
-          'email',
-          'https://www.googleapis.com/auth/calendar',
-          'https://www.googleapis.com/auth/calendar.readonly',
-          'https://www.googleapis.com/auth/calendar.events',
-          'https://www.googleapis.com/auth/tasks',
-          'https://www.googleapis.com/auth/tasks.readonly'
-        ],
-        accessType: 'offline',
-        prompt: 'consent',
-        includeGrantedScopes: true,
-        state: 'state'
+        passReqToCallback: true // This allows us to access the request object
       },
-      async (accessToken, refreshToken, profile, done) => {
+      async (req: any, accessToken, refreshToken, profile, done) => {
         try {
           console.log("Google OAuth callback received:");
           console.log("- Profile ID:", profile.id);
           console.log("- Email:", profile.emails?.[0]?.value);
           console.log("- Access Token:", accessToken ? "Present" : "Missing");
           console.log("- Refresh Token:", refreshToken ? "Present" : "Missing");
+          console.log("- Request query:", req.query);
+          
+          // If no refresh token and user is forcing consent, log warning
+          if (!refreshToken && req.query.state === 'force_consent') {
+            console.warn("WARNING: Force consent requested but no refresh token received from Google");
+          }
           
           let user = await storage.getUserByGoogleId(profile.id);
           
@@ -140,7 +134,7 @@ export function setupAuth(app: Express) {
               
               user = await storage.updateUser(user.id, {
                 googleAccessToken: accessToken,
-                googleRefreshToken: refreshToken,
+                googleRefreshToken: refreshToken || user.googleRefreshToken, // Keep existing if not provided
               });
             }
           } else {
@@ -148,7 +142,7 @@ export function setupAuth(app: Express) {
             console.log("Updating tokens for existing Google user:", user.email);
             user = await storage.updateUser(user.id, {
               googleAccessToken: accessToken,
-              googleRefreshToken: refreshToken,
+              googleRefreshToken: refreshToken || user.googleRefreshToken, // Keep existing if not provided
             });
           }
           

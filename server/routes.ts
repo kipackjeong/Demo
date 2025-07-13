@@ -34,6 +34,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Revoke Google access to force refresh token on next login
+  app.post("/api/auth/google/revoke", requireAuth, async (req, res) => {
+    try {
+      const user = req.user as User;
+      
+      // Clear Google tokens from user
+      await storage.updateUser(user.id, {
+        googleAccessToken: null,
+        googleRefreshToken: null,
+        googleId: null
+      });
+      
+      res.json({ message: "Google access revoked. Please re-authorize to get a new refresh token." });
+    } catch (error) {
+      console.error("Error revoking Google access:", error);
+      res.status(500).json({ error: "Failed to revoke Google access" });
+    }
+  });
+
   app.post("/api/auth/login", async (req, res, next) => {
     const passport = require("passport");
     passport.authenticate("local", (err: any, user: any, info: any) => {
@@ -85,9 +104,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/auth/google", async (req, res, next) => {
     const passport = require("passport");
     // Force re-authorization if user needs refresh token
-    const forcePrompt = req.query.force === 'true' ? 'consent' : 'select_account';
+    const forceConsent = req.query.force === 'true';
     
-    passport.authenticate("google", { 
+    const authOptions: any = {
       scope: [
         "profile", 
         "email",
@@ -98,10 +117,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "https://www.googleapis.com/auth/tasks.readonly"
       ],
       accessType: 'offline',
-      prompt: forcePrompt,
-      includeGrantedScopes: true,
-      state: 'state'
-    })(req, res, next);
+      includeGrantedScopes: true
+    };
+    
+    if (forceConsent) {
+      authOptions.prompt = 'consent';
+      authOptions.state = 'force_consent';
+    } else {
+      authOptions.prompt = 'select_account';
+    }
+    
+    console.log("Google OAuth auth options:", authOptions);
+    
+    passport.authenticate("google", authOptions)(req, res, next);
   });
 
   app.get("/api/auth/google/callback", async (req, res, next) => {
