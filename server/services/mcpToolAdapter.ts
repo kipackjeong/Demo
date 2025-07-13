@@ -91,9 +91,9 @@ export class MCPToolAdapter {
 
       new DynamicStructuredTool({
         name: "get_tasks",
-        description: "Get tasks from Google Tasks",
+        description: "Get tasks from Google Tasks. If no taskListId is provided, fetches from all task lists.",
         schema: z.object({
-          taskListId: z.string().default("@default").describe("Task list ID to fetch tasks from"),
+          taskListId: z.string().optional().describe("Task list ID to fetch tasks from. If not provided, fetches from all task lists."),
         }),
         func: async ({ taskListId }) => {
           try {

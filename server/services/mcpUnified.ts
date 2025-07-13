@@ -796,10 +796,16 @@ export class MCPUnifiedServer {
   }
 
   async getTasksDirectly(taskListId?: string) {
-    const result = await this.getTasks({
-      taskListId: taskListId || '@default',
+    const params: any = {
       showCompleted: true,
-    });
+    };
+    
+    // Only add taskListId if it's provided
+    if (taskListId) {
+      params.taskListId = taskListId;
+    }
+    
+    const result = await this.getTasks(params);
     return JSON.parse(result.content[0].text);
   }
 
