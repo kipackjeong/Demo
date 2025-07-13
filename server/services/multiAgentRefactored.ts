@@ -283,7 +283,9 @@ export class LifeManagerSystemRefactored {
         }
 
         // For regular messages, bind tools to the model and invoke
-        const modelWithTools = this.azureOpenAI!.bindTools(this.tools);
+        const modelWithTools = this.azureOpenAI!.bind({
+          tools: this.tools,
+        });
         const responseWithTools = await modelWithTools.invoke(messages);
         return { messages: [responseWithTools] };
       } catch (error) {

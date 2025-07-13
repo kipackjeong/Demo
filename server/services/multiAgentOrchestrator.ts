@@ -51,7 +51,9 @@ class CalendarAgent {
 Always use the available calendar tools to fetch real data.`;
 
     try {
-      const modelWithTools = this.model.bindTools(this.tools);
+      const modelWithTools = this.model.bind({
+        tools: this.tools,
+      });
       const messages = [
         new SystemMessage(systemPrompt),
         new HumanMessage(request)
@@ -106,7 +108,9 @@ class TasksAgent {
 Always use the available task tools to fetch real data.`;
 
     try {
-      const modelWithTools = this.model.bindTools(this.tools);
+      const modelWithTools = this.model.bind({
+        tools: this.tools,
+      });
       const messages = [
         new SystemMessage(systemPrompt),
         new HumanMessage(request)
@@ -195,6 +199,7 @@ export class MultiAgentOrchestrator {
   private graph: StateGraph<OrchestratorState> | null = null;
   private mcpToolAdapter: MCPToolAdapter;
   private tools: DynamicStructuredTool[] = [];
+  private baseModelConfig: any = null;
   
   // Sub-agents
   private calendarAgent: CalendarAgent | null = null;
@@ -229,15 +234,13 @@ export class MultiAgentOrchestrator {
         maxTokens: 500,
       });
 
-      // Create models for sub-agents
-      const agentModel = new AzureChatOpenAI({
+      // Store base model configuration for later use
+      this.baseModelConfig = {
         azureOpenAIApiKey: apiKey,
         azureOpenAIEndpoint: endpoint,
         azureOpenAIApiDeploymentName: deploymentName,
         azureOpenAIApiVersion: apiVersion,
-        temperature: 0.7,
-        maxTokens: 2000,
-      });
+      };
 
       console.log("Multi-Agent Orchestrator: Models initialized successfully");
     } catch (error) {
@@ -250,13 +253,10 @@ export class MultiAgentOrchestrator {
       await this.mcpToolAdapter.initialize(user);
       this.tools = this.mcpToolAdapter.getTools();
       
-      if (this.orchestratorModel) {
+      if (this.baseModelConfig) {
         // Initialize sub-agents with their specific tools
         const agentModel = new AzureChatOpenAI({
-          azureOpenAIApiKey: process.env.AZURE_OPENAI_API_KEY!,
-          azureOpenAIEndpoint: process.env.AZURE_OPENAI_ENDPOINT!,
-          azureOpenAIApiDeploymentName: process.env.AZURE_OPENAI_DEPLOYMENT_NAME!,
-          azureOpenAIApiVersion: process.env.AZURE_OPENAI_API_VERSION || "2024-02-01",
+          ...this.baseModelConfig,
           temperature: 0.7,
           maxTokens: 2000,
         });
