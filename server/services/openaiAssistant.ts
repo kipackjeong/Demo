@@ -182,6 +182,7 @@ For regular requests, format responses appropriately based on what the user is a
    */
   async generateResponse(userMessage: string, sessionId: string, isInitialSummary: boolean = false): Promise<string> {
     if (!this.isInitialized || !this.assistant) {
+      console.log("OpenAI Assistant not initialized properly");
       return this.getFallbackResponse(userMessage, isInitialSummary);
     }
 
@@ -195,6 +196,7 @@ For regular requests, format responses appropriately based on what the user is a
         console.log(`Created new thread ${threadId} for session ${sessionId}`);
       }
 
+      console.log(`Adding message to thread ${threadId}: "${userMessage}"`);
       // Add message to thread
       await this.openai.beta.threads.messages.create(threadId, {
         role: "user",
@@ -202,19 +204,28 @@ For regular requests, format responses appropriately based on what the user is a
       });
 
       // Run the assistant
+      console.log(`Running assistant ${this.assistant.id} on thread ${threadId}`);
       const run = await this.openai.beta.threads.runs.create(threadId, {
         assistant_id: this.assistant.id
       });
 
       // Wait for completion and handle tool calls
       let runStatus = await this.openai.beta.threads.runs.retrieve(threadId, run.id);
+      console.log(`Initial run status: ${runStatus.status}`);
       
-      while (runStatus.status !== "completed" && runStatus.status !== "failed") {
+      let iterations = 0;
+      const maxIterations = 30; // 30 seconds max wait
+      
+      while (runStatus.status !== "completed" && runStatus.status !== "failed" && iterations < maxIterations) {
+        console.log(`Run status: ${runStatus.status} (iteration ${iterations})`);
+        
         if (runStatus.status === "requires_action" && runStatus.required_action?.type === "submit_tool_outputs") {
           const toolCalls = runStatus.required_action.submit_tool_outputs.tool_calls;
+          console.log(`Handling ${toolCalls.length} tool calls`);
           const toolOutputs = await this.handleToolCalls(toolCalls);
           
           // Submit tool outputs
+          console.log("Submitting tool outputs");
           await this.openai.beta.threads.runs.submitToolOutputs(threadId, run.id, {
             tool_outputs: toolOutputs
           });
@@ -223,10 +234,18 @@ For regular requests, format responses appropriately based on what the user is a
         // Wait a bit before checking again
         await new Promise(resolve => setTimeout(resolve, 1000));
         runStatus = await this.openai.beta.threads.runs.retrieve(threadId, run.id);
+        iterations++;
       }
+
+      console.log(`Final run status: ${runStatus.status}`);
 
       if (runStatus.status === "failed") {
         console.error("Assistant run failed:", runStatus.last_error);
+        return this.getFallbackResponse(userMessage, isInitialSummary);
+      }
+
+      if (iterations >= maxIterations) {
+        console.error("Assistant run timed out");
         return this.getFallbackResponse(userMessage, isInitialSummary);
       }
 
@@ -234,14 +253,23 @@ For regular requests, format responses appropriately based on what the user is a
       const messages = await this.openai.beta.threads.messages.list(threadId);
       const lastMessage = messages.data[0];
       
+      console.log(`Got response from assistant: ${lastMessage.role}`);
+      
       if (lastMessage.role === "assistant" && lastMessage.content[0].type === "text") {
-        return lastMessage.content[0].text.value;
+        const response = lastMessage.content[0].text.value;
+        console.log(`Assistant response preview: ${response.substring(0, 100)}...`);
+        return response;
       }
 
+      console.log("No valid assistant response found");
       return this.getFallbackResponse(userMessage, isInitialSummary);
 
     } catch (error) {
       console.error("OpenAI Assistant error:", error);
+      console.error("Error details:", error.message);
+      if (error.response) {
+        console.error("API response:", error.response.data);
+      }
       return this.getFallbackResponse(userMessage, isInitialSummary);
     }
   }
@@ -252,8 +280,10 @@ For regular requests, format responses appropriately based on what the user is a
   private async handleToolCalls(toolCalls: any[]): Promise<any[]> {
     const toolOutputs = [];
     const tools = this.mcpToolAdapter.getTools();
+    console.log(`Available tools: ${tools.map(t => t.name).join(', ')}`);
 
     for (const toolCall of toolCalls) {
+      console.log(`Processing tool call: ${toolCall.function.name} with args: ${toolCall.function.arguments}`);
       const tool = tools.find(t => t.name === toolCall.function.name);
       
       if (tool) {
@@ -261,6 +291,7 @@ For regular requests, format responses appropriately based on what the user is a
           console.log(`Executing tool: ${toolCall.function.name}`);
           const args = JSON.parse(toolCall.function.arguments);
           const result = await tool.invoke(args);
+          console.log(`Tool ${toolCall.function.name} result preview: ${JSON.stringify(result).substring(0, 200)}...`);
           
           toolOutputs.push({
             tool_call_id: toolCall.id,
@@ -268,12 +299,14 @@ For regular requests, format responses appropriately based on what the user is a
           });
         } catch (error) {
           console.error(`Tool ${toolCall.function.name} failed:`, error);
+          console.error("Error details:", error.message);
           toolOutputs.push({
             tool_call_id: toolCall.id,
             output: JSON.stringify({ error: error.message })
           });
         }
       } else {
+        console.error(`Tool not found: ${toolCall.function.name}`);
         toolOutputs.push({
           tool_call_id: toolCall.id,
           output: JSON.stringify({ error: "Tool not found" })
@@ -281,6 +314,7 @@ For regular requests, format responses appropriately based on what the user is a
       }
     }
 
+    console.log(`Returning ${toolOutputs.length} tool outputs`);
     return toolOutputs;
   }
 
