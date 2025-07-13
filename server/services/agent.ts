@@ -215,6 +215,12 @@ export class AgentService {
             formattedResponse += "2. Focus on completing high-priority tasks first\n";
             formattedResponse += "3. Consider scheduling time for any overdue tasks\n";
             
+            console.log("\n=== DIRECT APPROACH FINAL RESPONSE ===");
+            console.log("Generated formatted response with:");
+            console.log("- Calendar events:", calendarEvents.length);
+            console.log("- Tasks:", tasks.length);
+            console.log("Response preview:", formattedResponse.substring(0, 200) + "...");
+            
             return formattedResponse;
           } catch (directError) {
             console.error("Direct approach also failed:", directError);

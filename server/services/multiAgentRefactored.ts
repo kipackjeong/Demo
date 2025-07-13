@@ -94,15 +94,17 @@ export class LifeManagerSystemRefactored {
         ...state.messages
       ];
 
+      console.log("\n=== AGENT NODE EXECUTION ===");
       console.log("Agent node executing with", this.tools.length, "tools");
       console.log("Current state messages:", state.messages.length);
       console.log("Message types:", state.messages.map(m => m.constructor.name));
+      console.log("User message:", state.userMessage);
       
       try {
         console.log("Invoking model without tools first...");
         // First, let's try without tools to see if the model responds
         const simpleResponse = await this.azureOpenAI!.invoke(messages);
-        console.log("Simple model response:", simpleResponse.content?.toString().substring(0, 100));
+        console.log("AGENT RESPONSE:", simpleResponse.content?.toString());
         
         // For initial summary, we need to manually create tool calls only if we haven't called tools yet
         if (state.isInitialSummary && state.messages.length === 0) {
@@ -263,11 +265,29 @@ export class LifeManagerSystemRefactored {
 
     // Add the tool node with wrapper for logging
     workflow.addNode("tools", async (state: LifeManagerState) => {
-      console.log("Tool node executing...");
+      console.log("\n=== TOOLS NODE EXECUTION ===");
+      const lastMessage = state.messages[state.messages.length - 1];
+      
+      if (lastMessage instanceof AIMessage && lastMessage.tool_calls) {
+        console.log("Tool calls to execute:", lastMessage.tool_calls.map(tc => tc.function.name));
+      }
+      
       const toolNode = new ToolNode(this.tools);
       try {
         const result = await toolNode.invoke(state);
-        console.log("Tool node completed successfully");
+        
+        // Log tool responses
+        if (result.messages) {
+          console.log(`Tools executed successfully. ${result.messages.length} tool responses generated`);
+          for (let i = 0; i < result.messages.length; i++) {
+            const msg = result.messages[i];
+            if (msg instanceof ToolMessage) {
+              const content = msg.content as string;
+              console.log(`\nTOOL RESPONSE ${i + 1}:`, content.substring(0, 300) + "...");
+            }
+          }
+        }
+        
         return result;
       } catch (error) {
         console.error("Tool node error:", error);
@@ -277,6 +297,9 @@ export class LifeManagerSystemRefactored {
 
     // Add the response formatter node
     workflow.addNode("formatter", async (state: LifeManagerState) => {
+      console.log("\n=== FORMATTER NODE EXECUTION ===");
+      console.log("Total messages in state:", state.messages.length);
+      
       const lastMessage = state.messages[state.messages.length - 1];
       
       // Extract the final response from the conversation
@@ -284,13 +307,16 @@ export class LifeManagerSystemRefactored {
       
       if (lastMessage instanceof AIMessage) {
         finalResponse = lastMessage.content as string;
+        console.log("FINAL AGENT RESPONSE:", finalResponse.substring(0, 200) + "...");
       }
 
       // For initial summaries, ensure proper formatting
       if (state.isInitialSummary && finalResponse) {
+        console.log("Applying initial summary formatting...");
         finalResponse = this.formatInitialSummary(finalResponse, state.messages);
       }
 
+      console.log("Formatter complete. Response length:", finalResponse.length);
       return { finalResponse };
     });
 
@@ -298,9 +324,12 @@ export class LifeManagerSystemRefactored {
     function shouldContinue(state: LifeManagerState): string {
       const lastMessage = state.messages[state.messages.length - 1];
       
+      console.log("\n=== ROUTING DECISION ===");
+      console.log("Last message type:", lastMessage?.constructor.name);
+      
       // If the last message has tool calls, route to tools
       if (lastMessage instanceof AIMessage && lastMessage.tool_calls && lastMessage.tool_calls.length > 0) {
-        console.log("Routing to tools node - found", lastMessage.tool_calls.length, "tool calls");
+        console.log("Decision: Route to TOOLS - found", lastMessage.tool_calls.length, "tool calls");
         return "tools";
       }
       
@@ -309,13 +338,13 @@ export class LifeManagerSystemRefactored {
       if (state.isInitialSummary && hasToolMessages && lastMessage instanceof AIMessage) {
         const content = lastMessage.content as string;
         if (content.includes('## 📅 This Week\'s Calendar')) {
-          console.log("Initial summary formatting complete - routing to formatter");
+          console.log("Decision: Route to FORMATTER - initial summary complete");
           return "formatter";
         }
       }
       
       // Otherwise, we're done
-      console.log("Routing to formatter node - no tool calls");
+      console.log("Decision: Route to FORMATTER - no more tool calls");
       return "formatter";
     }
 
