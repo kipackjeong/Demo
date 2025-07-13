@@ -10,8 +10,18 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import type { Message } from "@shared/schema";
 
+interface ActionButton {
+  id: string;
+  label: string;
+  action: string;
+}
+
+interface ExtendedMessage extends Message {
+  actionButtons?: ActionButton[];
+}
+
 export default function ChatPage() {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<ExtendedMessage[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [sessionId, setSessionId] = useState(() => 
     `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
@@ -99,6 +109,20 @@ export default function ChatPage() {
           m.id === -1 ? { ...m, id: Date.now() } : m
         )
       );
+    } else if (data.type === "action_buttons") {
+      // Add action buttons to the last assistant message
+      setMessages(prev => {
+        const lastIndex = prev.length - 1;
+        if (lastIndex >= 0 && prev[lastIndex].role === "assistant") {
+          const updated = [...prev];
+          updated[lastIndex] = {
+            ...updated[lastIndex],
+            actionButtons: data.buttons
+          };
+          return updated;
+        }
+        return prev;
+      });
     } else if (data.type === "error") {
       setIsTyping(false);
       toast({
@@ -220,6 +244,7 @@ export default function ChatPage() {
         <ChatWindow
           messages={messages}
           isTyping={isTyping}
+          onActionButtonClick={handleSendMessage}
         />
         
         <MessageInput

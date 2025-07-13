@@ -5,12 +5,23 @@ import type { Message } from "@shared/schema";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-interface ChatWindowProps {
-  messages: Message[];
-  isTyping: boolean;
+interface ActionButton {
+  id: string;
+  label: string;
+  action: string;
 }
 
-export function ChatWindow({ messages, isTyping }: ChatWindowProps) {
+interface ExtendedMessage extends Message {
+  actionButtons?: ActionButton[];
+}
+
+interface ChatWindowProps {
+  messages: ExtendedMessage[];
+  isTyping: boolean;
+  onActionButtonClick?: (action: string) => void;
+}
+
+export function ChatWindow({ messages, isTyping, onActionButtonClick }: ChatWindowProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -82,6 +93,19 @@ export function ChatWindow({ messages, isTyping }: ChatWindowProps) {
                       {formatTimestamp(message.timestamp)}
                     </span>
                   </div>
+                  {message.actionButtons && message.actionButtons.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {message.actionButtons.map((button) => (
+                        <button
+                          key={button.id}
+                          onClick={() => onActionButtonClick?.(button.action)}
+                          className="px-3 py-1.5 text-xs font-medium rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 transition-colors"
+                        >
+                          {button.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}

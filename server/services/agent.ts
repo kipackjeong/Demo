@@ -122,7 +122,11 @@ export class AgentService {
             
             if (calendarTool) {
               console.log("Calling calendar tool...");
-              const calendarResult = await calendarTool.func({});
+              const calendarResult = await calendarTool.func({
+                calendarId: 'primary',
+                timeMin: new Date().toISOString(),
+                timeMax: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
+              });
               console.log("Calendar result:", calendarResult);
               calendarEvents = JSON.parse(calendarResult);
             }
@@ -135,7 +139,7 @@ export class AgentService {
             }
             
             // Format the response
-            let formattedResponse = "## 📅 This Week's Calendar\n\n";
+            let formattedResponse = "## 📅 Next 3 Days\n\n";
             
             if (calendarEvents.length > 0) {
               for (const event of calendarEvents) {
@@ -161,7 +165,7 @@ export class AgentService {
                 formattedResponse += "\n";
               }
             } else {
-              formattedResponse += "No events scheduled this week.\n";
+              formattedResponse += "No events scheduled for the next 3 days.\n";
             }
             
             formattedResponse += "\n## ✅ Tasks\n\n";

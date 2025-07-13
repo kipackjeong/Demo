@@ -4,19 +4,20 @@
 
 This is a production-ready AI agent chatbot framework built with React frontend and Node.js backend, now powered by Azure OpenAI through LangChain. The system enables real-time, bidirectional streaming communication between users and AI agents through WebSocket connections. The framework provides full conversation history, context awareness, and graceful fallback handling.
 
-**Latest Update (July 13, 2025):** Refactored MCP implementation to follow official Model Context Protocol standards. Key improvements:
-- Created unified MCP server (mcpUnified.ts) consolidating Calendar and Tasks functionality
-- Implemented MCPToolAdapter converting MCP tools into LangChain DynamicStructuredTools
-- Refactored Life Manager system to use proper tool calling through LangGraph StateGraph
-- For initial summaries, system now manually creates tool calls to ensure calendar/tasks are fetched
-- Tools execute successfully and return data to the graph
-- Current challenge: Graph execution timing out after tool execution, needs optimization of the agent-tools-formatter flow
-- System falls back gracefully to single agent when multi-agent times out
+**Latest Update (July 13, 2025):** Enhanced multi-agent system with comprehensive logging and time-ranged summaries:
+- Added detailed logging for each sub-agent's responses (AGENT NODE, ROUTING, TOOLS NODE, FORMATTER)
+- Initial summaries now show 3-day window instead of full week for focused view
+- Implemented interactive action buttons for different time ranges after initial summary
+- Action buttons include: "Get this week's schedule", "Get this month's schedule", "Show all tasks", "Next 7 days"
+- Frontend updated to handle and display action buttons with click handlers
+- System properly logs each step of the multi-agent workflow for debugging
+- Fallback mechanism successfully retrieves actual Google Calendar/Tasks data when available
 
 ## User Preferences
 
 - Preferred communication style: Simple, everyday language.
-- Initial AI greeting: Concise markdown-formatted weekly summary with Calendar, Tasks, and Recommendations sections
+- Initial AI greeting: Concise markdown-formatted 3-day summary with Calendar, Tasks, and Recommendations sections
+- Time-ranged summaries: Initial view shows next 3 days, with interactive buttons for week/month views
 - Regular conversations: Natural language without markdown formatting
 - Authentication: Traditional email/password login with Google OAuth option for Calendar and Tasks API access
 

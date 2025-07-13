@@ -143,8 +143,11 @@ async function handleWebSocketMessage(
       const response = await agentService.generateResponse(message.content || "", message.sessionId);
       console.log("Agent response generated, starting stream...");
       
+      // Check if this is an initial summary
+      const isInitialSummary = message.content?.includes('[INITIAL_SUMMARY]');
+      
       // Stream the response
-      await streamResponse(ws, response, message.sessionId, storage);
+      await streamResponse(ws, response, message.sessionId, storage, isInitialSummary);
       console.log("Response streaming completed");
     } catch (error) {
       console.error("Error generating agent response:", error);
@@ -166,7 +169,8 @@ async function streamResponse(
   ws: WebSocket,
   response: string,
   sessionId: string,
-  storage: IStorage
+  storage: IStorage,
+  isInitialSummary: boolean = false
 ) {
   const words = response.split(" ");
   let currentContent = "";
@@ -202,5 +206,35 @@ async function streamResponse(
       type: "done",
       sessionId,
     }));
+    
+    // If this is an initial summary, send action buttons for different time ranges
+    if (isInitialSummary) {
+      ws.send(JSON.stringify({
+        type: "action_buttons",
+        sessionId,
+        buttons: [
+          {
+            id: "this_week",
+            label: "Get this week's schedule",
+            action: "Show me my schedule for this week"
+          },
+          {
+            id: "this_month", 
+            label: "Get this month's schedule",
+            action: "Show me my schedule for this month"
+          },
+          {
+            id: "all_tasks",
+            label: "Show all tasks",
+            action: "Show me all my tasks organized by priority"
+          },
+          {
+            id: "upcoming_7days",
+            label: "Next 7 days",
+            action: "Show me my schedule for the next 7 days"
+          }
+        ]
+      }));
+    }
   }
 }
