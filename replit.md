@@ -251,6 +251,35 @@ This is a production-ready AI agent chatbot framework built with React frontend 
 - **ESLint/Prettier**: Code formatting and linting (implied)
 - **PostCSS**: CSS processing with Tailwind
 
+## Environment Variables Setup
+
+### Required Environment Variables
+
+The application uses environment variables for configuration. Copy `.env.example` to `.env` and fill in your actual values:
+
+```bash
+cp .env.example .env
+```
+
+#### Essential Variables:
+- **DATABASE_URL**: PostgreSQL connection string (provided by Replit)
+- **OPENAI_API_KEY**: Required for OpenAI Assistant functionality
+- **GOOGLE_CLIENT_ID**: Required for Google OAuth login
+- **GOOGLE_CLIENT_SECRET**: Required for Google OAuth login
+- **SESSION_SECRET**: Secret key for session encryption (generate a random string)
+
+#### Optional Variables:
+- **AZURE_OPENAI_***: Azure OpenAI configuration (if using Azure fallback)
+- **REPLIT_DOMAINS**: Automatically set by Replit
+- **NODE_ENV**: Set to "development" or "production"
+- **PORT**: Server port (defaults to 5000)
+
+### Security Notes:
+- Never commit your `.env` file to version control
+- Use strong, random values for SESSION_SECRET
+- Keep your API keys secure and rotate them regularly
+- The `.env` file is already added to `.gitignore`
+
 ## Deployment Strategy
 
 ### Development Setup
