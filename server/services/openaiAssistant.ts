@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { MCPToolAdapter } from "./mcpToolAdapter.js";
+import { ScheduleFormatter } from "./scheduleFormatter.js";
 
 /**
  * OpenAI Assistant-based agent with dynamic tool handling
@@ -156,29 +157,56 @@ You have access to comprehensive tools that can:
 - Create new calendar events and tasks
 - List all calendars and task lists
 
-IMPORTANT INSTRUCTIONS:
-1. **Intelligent Tool Selection**: Analyze the user's request and choose the most appropriate tools
-2. **Time Range Understanding**: 
-   - When users ask for "all scheduled events this year", use get_this_year_events tool
-   - When users ask for "this month", use get_this_month_events tool
-   - Be precise with time ranges
-3. **Task Organization**: 
-   - When users ask for "all tasks organized by priority", use get_all_tasks and organize by priority
-   - When users ask for "tasks organized by list", use get_all_tasks and organize by task list
-4. **Natural Language Processing**: Understand context and intent, not just keywords
-5. **Comprehensive Responses**: Provide helpful, well-formatted responses based on the data
+IMPORTANT FORMATTING RULES FOR SCHEDULES AND SUMMARIES:
 
-For initial summaries, provide a concise markdown-formatted summary showing:
-## 📅 Next 3 Days
-(List upcoming events)
+Use this EXACT template structure:
 
-## ✅ Tasks
-(List important tasks)
+# 📅 [Time Range] Overview
 
-## 💡 Recommendations
-(Provide 3 actionable recommendations)
+## Calendar Events
 
-For regular requests, format responses appropriately based on what the user is asking for.`;
+### [Date Header]
+- **Event Title** | ⏰ Start - End Time | 📍 Location (if available)
+- **Event Title** | ⏰ Start - End Time | 📝 Description (first 100 chars if available)
+
+[Empty line between different dates]
+
+### [Next Date Header]
+- **Event Title** | ⏰ Time
+
+## Tasks
+
+### 🔴 High Priority
+- **Task Title** | 📅 Due: [Date] | 📂 [List Name]
+
+### 🟡 Medium Priority  
+- **Task Title** | 📅 Due: [Date] | 📂 [List Name]
+
+### 🟢 Low Priority
+- **Task Title** | 📅 Due: [Date] | 📂 [List Name]
+
+## Summary
+- **Events**: [X] scheduled
+- **Tasks**: [Y] pending
+
+DATE FORMATTING RULES:
+- Use "Today" for current date
+- Use "Tomorrow" for next day
+- Use "Monday, July 17" format for other dates
+- For overdue tasks: "Overdue by X days"
+- For tasks due dates: "Today", "Tomorrow", or "Mon, Jul 17"
+
+CONSISTENCY RULES:
+- Always use bold for titles
+- Always use pipe separators between fields
+- Always include emoji icons as shown
+- Always end with Summary section
+- Keep all descriptions under 100 characters
+- Group events by date with headers
+- Group tasks by priority level
+- If no events/tasks, show "*No events scheduled*" or "*No tasks due*"
+
+For regular conversation, be friendly and conversational without the strict formatting.`;
   }
 
   /**

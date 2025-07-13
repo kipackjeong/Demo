@@ -99,11 +99,13 @@ async function handleWebSocketMessage(
 ) {
   if (message.type === "user_message") {
     // Create a unique key for this message to prevent duplicate processing
-    const messageKey = `${message.sessionId}-${message.content}-${message.timestamp}`;
+    // Use content hash instead of timestamp to catch duplicates sent close together
+    const contentHash = Buffer.from(message.content || "").toString('base64').substring(0, 20);
+    const messageKey = `${message.sessionId}-${contentHash}`;
     
-    // Check if this message is already being processed
+    // Check if this message is already being processed or was recently processed
     if (activeMessages.has(messageKey)) {
-      console.log(`Duplicate message detected for key: ${messageKey}, ignoring...`);
+      console.log(`Duplicate message detected for session ${message.sessionId}, ignoring...`);
       return;
     }
     
@@ -204,8 +206,10 @@ async function handleWebSocketMessage(
       }
     }
       } finally {
-        // Remove the message from active processing
-        activeMessages.delete(messageKey);
+        // Keep the message key for a short time to catch late duplicates
+        setTimeout(() => {
+          activeMessages.delete(messageKey);
+        }, 5000); // Remove after 5 seconds
       }
     })();
     
