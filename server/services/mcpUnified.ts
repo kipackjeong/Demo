@@ -507,6 +507,10 @@ export class MCPUnifiedServer {
   }
 
   private async getTasks(args: any) {
+    console.log("🔍 getTasks called with args:", JSON.stringify(args, null, 2));
+    console.log("🔍 this.useMockData:", this.useMockData);
+    console.log("🔍 this.tasks initialized:", !!this.tasks);
+    
     if (this.useMockData) {
       const tasks = mockDataStore.getTasks()
         .filter(task => args.showCompleted || !task.completed);
