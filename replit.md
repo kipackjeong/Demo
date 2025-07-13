@@ -5,6 +5,13 @@
 This is a production-ready AI agent chatbot framework built with React frontend and Node.js backend, now powered by Azure OpenAI through LangChain. The system enables real-time, bidirectional streaming communication between users and AI agents through WebSocket connections. The framework provides full conversation history, context awareness, and graceful fallback handling.
 
 **Latest Update (July 13, 2025):** Successfully implemented and tested complete Multi-Agent System:
+
+**Bug Fix (July 13, 2025 - 9:16 PM):** Fixed schedule query handling issue:
+- Fixed incorrect task creation when user asks "What do I need to do this week"
+- Added proper detection for schedule-related queries (e.g., "what do I need to do", "what's on my", "my schedule")
+- Updated formatter to handle both initial summaries and regular schedule requests
+- System now correctly fetches calendar events and tasks when user asks about their schedule
+- Renamed `formatInitialSummary` to `formatScheduleResponse` for broader usage
 - **Completed Multi-Agent Architecture (multiAgentOrchestrator.ts)**
   - Orchestrator Agent: Routes requests based on intelligent analysis
   - Calendar Agent: Directly calls calendar tools for efficient data retrieval

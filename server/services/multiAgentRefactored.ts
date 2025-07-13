@@ -191,9 +191,56 @@ export class LifeManagerSystemRefactored {
         const userWantsTask = state.userMessage.toLowerCase().includes("i have to") ||
                              state.userMessage.toLowerCase().includes("i need to") ||
                              state.userMessage.toLowerCase().includes("remind me");
+        
+        // Check if user is asking for their schedule/tasks
+        const isAskingForSchedule = state.userMessage.toLowerCase().includes("what do i need to do") ||
+                                   state.userMessage.toLowerCase().includes("what's on my") ||
+                                   state.userMessage.toLowerCase().includes("show me my") ||
+                                   state.userMessage.toLowerCase().includes("my schedule") ||
+                                   state.userMessage.toLowerCase().includes("my tasks") ||
+                                   state.userMessage.toLowerCase().includes("my calendar");
 
+        // If user is asking for their schedule, fetch calendar and tasks
+        if (isAskingForSchedule && !state.isInitialSummary) {
+          console.log("User asking for schedule, fetching calendar and tasks");
+          
+          const toolCalls = [
+            {
+              id: "call_1",
+              type: "function" as const,
+              function: {
+                name: "get_calendar_events",
+                arguments: JSON.stringify({
+                  calendarId: "primary",
+                  timeMin: new Date().toISOString(),
+                  timeMax: new Date(
+                    Date.now() + 7 * 24 * 60 * 60 * 1000,
+                  ).toISOString(), // 7 days from now
+                }),
+              },
+            },
+            {
+              id: "call_2",
+              type: "function" as const,
+              function: {
+                name: "get_tasks",
+                arguments: JSON.stringify({
+                  taskListId: "@default",
+                }),
+              },
+            },
+          ];
+
+          const responseWithTools = new AIMessage({
+            content: simpleResponse.content,
+            tool_calls: toolCalls,
+          });
+
+          return { messages: [responseWithTools] };
+        }
+        
         // If we need to create a task, manually create the tool call
-        if ((needsTaskCreation || userWantsTask) && !state.isInitialSummary) {
+        if ((needsTaskCreation || userWantsTask) && !state.isInitialSummary && !isAskingForSchedule) {
           console.log("Response needs task creation, creating tool call");
           
           // Extract task details from conversation context
@@ -573,12 +620,26 @@ export class LifeManagerSystemRefactored {
         console.log("Unable to extract response from last message");
       }
 
-      // For initial summaries, ensure proper formatting
-      if (state.isInitialSummary && finalResponse) {
-        console.log("Applying initial summary formatting...");
-        finalResponse = this.formatInitialSummary(
+      // Check if we should format the response based on tool messages
+      const hasCalendarOrTaskTools = state.messages.some((m) => {
+        if (m.constructor.name === "ToolMessage") {
+          try {
+            const result = JSON.parse(m.content as string);
+            return Array.isArray(result);
+          } catch (e) {
+            return false;
+          }
+        }
+        return false;
+      });
+
+      // For initial summaries or when we have calendar/task data, ensure proper formatting
+      if ((state.isInitialSummary || hasCalendarOrTaskTools) && finalResponse) {
+        console.log("Applying schedule formatting...");
+        finalResponse = this.formatScheduleResponse(
           finalResponse,
           state.messages,
+          state.isInitialSummary
         );
       }
 
@@ -700,9 +761,10 @@ IMPORTANT RULES:
 - Provide clear confirmations after actions`;
   }
 
-  private formatInitialSummary(
+  private formatScheduleResponse(
     response: string,
     messages: BaseMessage[],
+    isInitialSummary: boolean = false
   ): string {
     // If response already contains proper formatting markers, return it as-is
     if (response.includes("## 📅") && response.includes("## ✅") && response.includes("## 💡")) {
@@ -739,7 +801,7 @@ IMPORTANT RULES:
     console.log(`Formatting with ${calendarData.length} events and ${tasksData.length} tasks`);
 
     // Format the response properly
-    let formattedResponse = "## 📅 Next 3 Days\n\n";
+    let formattedResponse = isInitialSummary ? "## 📅 Next 3 Days\n\n" : "## 📅 This Week's Schedule\n\n";
 
     // Format calendar events
     if (calendarData.length > 0) {
@@ -770,7 +832,7 @@ IMPORTANT RULES:
         formattedResponse += "\n";
       }
     } else {
-      formattedResponse += "No events scheduled for the next 3 days.\n";
+      formattedResponse += isInitialSummary ? "No events scheduled for the next 3 days.\n" : "No events scheduled this week.\n";
     }
 
     formattedResponse += "\n## ✅ Tasks\n\n";
