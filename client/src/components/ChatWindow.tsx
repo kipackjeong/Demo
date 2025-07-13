@@ -2,6 +2,8 @@ import { useEffect, useRef } from "react";
 import { Bot, Check } from "lucide-react";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import type { Message } from "@shared/schema";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface ChatWindowProps {
   messages: Message[];
@@ -69,9 +71,11 @@ export function ChatWindow({ messages, isTyping }: ChatWindowProps) {
                 </div>
                 <div className="flex-1">
                   <div className="agent-bubble px-4 py-3 rounded-2xl rounded-tl-md">
-                    <p className="text-sm text-slate-800 dark:text-white whitespace-pre-wrap">
-                      {message.content}
-                    </p>
+                    <div className="text-sm text-slate-800 dark:text-white prose prose-sm dark:prose-invert max-w-none">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {message.content}
+                      </ReactMarkdown>
+                    </div>
                   </div>
                   <div className="flex items-center mt-1 px-1">
                     <span className="text-xs text-slate-500 dark:text-slate-400">
