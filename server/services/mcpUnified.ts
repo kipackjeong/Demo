@@ -718,6 +718,27 @@ export class MCPUnifiedServer {
   }
 
   private formatTask(task: any, taskListId?: string, taskListTitle?: string) {
+    // Inline priority inference to avoid context issues
+    const inferPriorityFromTitle = (title: string): "high" | "medium" | "low" => {
+      const titleLower = title.toLowerCase();
+      
+      // High priority indicators
+      if (titleLower.includes("urgent") || titleLower.includes("asap") || 
+          titleLower.includes("important") || titleLower.includes("critical") ||
+          titleLower.includes("deadline") || titleLower.includes("proposal")) {
+        return "high";
+      }
+      
+      // Medium priority indicators
+      if (titleLower.includes("meeting") || titleLower.includes("review") ||
+          titleLower.includes("update") || titleLower.includes("prepare")) {
+        return "medium";
+      }
+      
+      // Default to low priority
+      return "low";
+    };
+
     return {
       id: task.id,
       title: task.title,
@@ -728,28 +749,8 @@ export class MCPUnifiedServer {
       position: task.position,
       taskListId: taskListId,
       taskListTitle: taskListTitle,
-      priority: this.inferPriorityFromTitle(task.title),
+      priority: inferPriorityFromTitle(task.title || ""),
     };
-  }
-
-  private inferPriorityFromTitle(title: string): "high" | "medium" | "low" {
-    const titleLower = title.toLowerCase();
-    
-    // High priority indicators
-    if (titleLower.includes("urgent") || titleLower.includes("asap") || 
-        titleLower.includes("important") || titleLower.includes("critical") ||
-        titleLower.includes("deadline") || titleLower.includes("proposal")) {
-      return "high";
-    }
-    
-    // Medium priority indicators
-    if (titleLower.includes("meeting") || titleLower.includes("review") ||
-        titleLower.includes("update") || titleLower.includes("prepare")) {
-      return "medium";
-    }
-    
-    // Default to low priority
-    return "low";
   }
 
   // Start the server for standalone mode
