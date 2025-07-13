@@ -258,7 +258,7 @@ For regular requests, format responses appropriately based on what the user is a
       if (activeRunId) {
         console.log(`Thread ${threadId} already has active run ${activeRunId}, waiting for completion...`);
         try {
-          const existingRun = await this.openai.beta.threads.runs.retrieve(threadId, activeRunId);
+          const existingRun = await this.openai.beta.threads.runs.retrieve(activeRunId, threadId);
           if (existingRun.status === 'in_progress' || existingRun.status === 'requires_action') {
             console.log(`Existing run is still active with status: ${existingRun.status}`);
             // Wait for the existing run to complete
@@ -272,13 +272,13 @@ For regular requests, format responses appropriately based on what the user is a
                 console.log(`Handling ${toolCalls.length} tool calls for existing run`);
                 const toolOutputs = await this.handleToolCalls(toolCalls);
                 
-                await this.openai.beta.threads.runs.submitToolOutputs(threadId, activeRunId, {
+                await this.openai.beta.threads.runs.submitToolOutputs(activeRunId, threadId, {
                   tool_outputs: toolOutputs
                 });
               }
               
               await new Promise(resolve => setTimeout(resolve, 1000));
-              runStatus = await this.openai.beta.threads.runs.retrieve(threadId, activeRunId);
+              runStatus = await this.openai.beta.threads.runs.retrieve(activeRunId, threadId);
               iterations++;
             }
             
@@ -308,7 +308,7 @@ For regular requests, format responses appropriately based on what the user is a
       if (activeRunId) {
         console.log(`Thread ${threadId} already has active run ${activeRunId}, checking status...`);
         try {
-          const existingRun = await this.openai.beta.threads.runs.retrieve(threadId, activeRunId);
+          const existingRun = await this.openai.beta.threads.runs.retrieve(activeRunId, threadId);
           if (existingRun.status === 'in_progress' || existingRun.status === 'requires_action') {
             console.log(`Existing run is still active with status: ${existingRun.status}`);
             // Wait for the existing run to complete
@@ -322,13 +322,13 @@ For regular requests, format responses appropriately based on what the user is a
                 console.log(`Handling ${toolCalls.length} tool calls for existing run`);
                 const toolOutputs = await this.handleToolCalls(toolCalls);
                 
-                await this.openai.beta.threads.runs.submitToolOutputs(threadId, activeRunId, {
+                await this.openai.beta.threads.runs.submitToolOutputs(activeRunId, threadId, {
                   tool_outputs: toolOutputs
                 });
               }
               
               await new Promise(resolve => setTimeout(resolve, 1000));
-              runStatus = await this.openai.beta.threads.runs.retrieve(threadId, activeRunId);
+              runStatus = await this.openai.beta.threads.runs.retrieve(activeRunId, threadId);
               iterations++;
             }
             
@@ -385,9 +385,10 @@ For regular requests, format responses appropriately based on what the user is a
           throw new Error(`Invalid parameters: threadId=${threadId}, runId=${run.id}`);
         }
         
+        // Try swapping parameters - SDK might have them reversed
         runStatus = await this.openai.beta.threads.runs.retrieve(
-          threadId,
-          run.id
+          run.id,
+          threadId
         );
       } catch (retrieveError) {
         console.error("Error during run retrieve:");
@@ -410,14 +411,14 @@ For regular requests, format responses appropriately based on what the user is a
           
           // Submit tool outputs
           console.log("Submitting tool outputs");
-          await this.openai.beta.threads.runs.submitToolOutputs(threadId, run.id, {
+          await this.openai.beta.threads.runs.submitToolOutputs(run.id, threadId, {
             tool_outputs: toolOutputs
           });
         }
         
         // Wait a bit before checking again
         await new Promise(resolve => setTimeout(resolve, 1000));
-        runStatus = await this.openai.beta.threads.runs.retrieve(threadId, run.id);
+        runStatus = await this.openai.beta.threads.runs.retrieve(run.id, threadId);
         iterations++;
       }
 
