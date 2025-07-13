@@ -414,22 +414,22 @@ export class LifeManagerSystemRefactored {
         console.log("Response needs tools, executing directly");
         
         // Parse the user message to determine what tools to call
-        const userMessage = state.userMessage.toLowerCase();
+        const userMessageLower = state.userMessage.toLowerCase();
         const toolResults = [];
         
         try {
-          if (userMessage.includes("create") && userMessage.includes("task")) {
+          if (userMessageLower.includes("create") && userMessageLower.includes("task")) {
             // Extract task details from the message
-            const titleMatch = userMessage.match(/["']([^"']+)["']/);
+            const titleMatch = userMessageLower.match(/["']([^"']+)["']/);
             const taskTitle = titleMatch ? titleMatch[1] : "New Task";
             
             // Find task list name
-            const listMatch = userMessage.match(/in the ["']([^"']+)["'] list/i);
+            const listMatch = userMessageLower.match(/in the ["']([^"']+)["'] list/i);
             const taskList = listMatch ? listMatch[1] : "My Tasks";
             
             // Determine priority
-            const priority = userMessage.includes("high priority") ? "high" : 
-                           userMessage.includes("low priority") ? "low" : "medium";
+            const priority = userMessageLower.includes("high priority") ? "high" : 
+                           userMessageLower.includes("low priority") ? "low" : "medium";
             
             console.log(`Creating task: "${taskTitle}" in list "${taskList}" with ${priority} priority`);
             
