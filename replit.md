@@ -4,7 +4,17 @@
 
 This is a production-ready AI agent chatbot framework built with React frontend and Node.js backend, now powered by Azure OpenAI through LangChain. The system enables real-time, bidirectional streaming communication between users and AI agents through WebSocket connections. The framework provides full conversation history, context awareness, and graceful fallback handling.
 
-**Latest Update (July 14, 2025 - 11:20 PM):** Fixed Critical OpenAI SDK Parameter Issues:
+**Latest Update (July 14, 2025 - 11:24 PM):** Fixed Duplicate Message Streaming Issue:
+- **Problem Identified**: WebSocket messages were being processed twice, causing duplicated words in output
+- **Root Cause**: Client sending duplicate messages with slightly different timestamps
+- **Solution Implemented**: Added message deduplication mechanism using unique message keys
+- **Technical Details**: 
+  - Tracks active messages using sessionId + content + timestamp as unique key
+  - Prevents duplicate processing by checking if message is already being handled
+  - Cleans up tracking map after message processing completes
+- **Result**: Output no longer shows duplicated words like "This This Week's Week's Events"
+
+**Previous Update (July 14, 2025 - 11:20 PM):** Fixed Critical OpenAI SDK Parameter Issues:
 - **Root Cause Identified**: OpenAI SDK methods require different parameter signatures than documented
 - **Fixed runs.retrieve**: Changed from `retrieve(threadId, runId)` to `retrieve(runId, { thread_id: threadId })`
 - **Fixed submitToolOutputs**: Changed from `submitToolOutputs(runId, threadId, params)` to `submitToolOutputs(runId, { thread_id: threadId, tool_outputs })`

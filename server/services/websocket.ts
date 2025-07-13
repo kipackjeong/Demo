@@ -10,6 +10,9 @@ import session from "express-session";
 // Store AgentService instances per session to maintain conversation history
 const agentServiceMap = new Map<string, AgentService>();
 
+// Track active message processing to prevent duplicates
+const activeMessages = new Map<string, Promise<void>>();
+
 export function setupWebSocketServer(wss: WebSocketServer, storage: IStorage) {
   // AgentService will be created per connection with user context
 
@@ -95,6 +98,18 @@ async function handleWebSocketMessage(
   userId?: number
 ) {
   if (message.type === "user_message") {
+    // Create a unique key for this message to prevent duplicate processing
+    const messageKey = `${message.sessionId}-${message.content}-${message.timestamp}`;
+    
+    // Check if this message is already being processed
+    if (activeMessages.has(messageKey)) {
+      console.log(`Duplicate message detected for key: ${messageKey}, ignoring...`);
+      return;
+    }
+    
+    // Create a promise for this message processing
+    const messagePromise = (async () => {
+      try {
     // Get or create AgentService instance for this session
     let agentService = agentServiceMap.get(message.sessionId);
     
@@ -188,6 +203,17 @@ async function handleWebSocketMessage(
         }));
       }
     }
+      } finally {
+        // Remove the message from active processing
+        activeMessages.delete(messageKey);
+      }
+    })();
+    
+    // Store the promise to prevent duplicate processing
+    activeMessages.set(messageKey, messagePromise);
+    
+    // Wait for the message to be processed
+    await messagePromise;
   }
 }
 
