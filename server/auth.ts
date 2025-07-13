@@ -34,7 +34,8 @@ export function setupAuth(app: Express) {
   const PostgresSessionStore = connectPg(session);
   const sessionStore = new PostgresSessionStore({ 
     conString: process.env.DATABASE_URL,
-    createTableIfMissing: false // Avoid table creation conflicts
+    createTableIfMissing: true,
+    tableName: 'session' // Use singular name to match connect-pg-simple default
   });
 
   const sessionSettings: session.SessionOptions = {
