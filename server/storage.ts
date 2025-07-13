@@ -7,13 +7,16 @@ import {
   type Message,
   type InsertMessage,
   type User,
-  type UpsertUser
+  type InsertUser
 } from "@shared/schema";
 
 export interface IStorage {
-  // User operations (required for Replit Auth)
-  getUser(id: string): Promise<User | undefined>;
-  upsertUser(user: UpsertUser): Promise<User>;
+  // User operations
+  getUser(id: number): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByGoogleId(googleId: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  updateUser(id: number, updates: Partial<User>): Promise<User>;
   
   // Chat operations
   getChatSession(sessionId: string): Promise<ChatSession | undefined>;
@@ -26,36 +29,80 @@ export interface IStorage {
 export class MemStorage implements IStorage {
   private chatSessions: Map<string, ChatSession>;
   private messages: Map<string, Message[]>;
-  private users: Map<string, User>;
+  private users: Map<number, User>;
+  private usersByEmail: Map<string, User>;
+  private usersByGoogleId: Map<string, User>;
   private currentSessionId: number;
   private currentMessageId: number;
+  private currentUserId: number;
 
   constructor() {
     this.chatSessions = new Map();
     this.messages = new Map();
     this.users = new Map();
+    this.usersByEmail = new Map();
+    this.usersByGoogleId = new Map();
     this.currentSessionId = 1;
     this.currentMessageId = 1;
+    this.currentUserId = 1;
   }
 
-  // User operations (required for Replit Auth)
-  async getUser(id: string): Promise<User | undefined> {
+  // User operations
+  async getUser(id: number): Promise<User | undefined> {
     return this.users.get(id);
   }
 
-  async upsertUser(userData: UpsertUser): Promise<User> {
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    return this.usersByEmail.get(email);
+  }
+
+  async getUserByGoogleId(googleId: string): Promise<User | undefined> {
+    return this.usersByGoogleId.get(googleId);
+  }
+
+  async createUser(userData: InsertUser): Promise<User> {
+    const id = this.currentUserId++;
     const user: User = {
-      id: userData.id,
-      email: userData.email ?? null,
+      id,
+      email: userData.email,
+      password: userData.password ?? null,
       firstName: userData.firstName ?? null,
       lastName: userData.lastName ?? null,
       profileImageUrl: userData.profileImageUrl ?? null,
+      googleId: userData.googleId ?? null,
+      googleAccessToken: null,
+      googleRefreshToken: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
     
-    this.users.set(userData.id, user);
+    this.users.set(id, user);
+    this.usersByEmail.set(userData.email, user);
+    if (userData.googleId) {
+      this.usersByGoogleId.set(userData.googleId, user);
+    }
     return user;
+  }
+
+  async updateUser(id: number, updates: Partial<User>): Promise<User> {
+    const existingUser = this.users.get(id);
+    if (!existingUser) {
+      throw new Error("User not found");
+    }
+    
+    const updatedUser: User = {
+      ...existingUser,
+      ...updates,
+      updatedAt: new Date(),
+    };
+    
+    this.users.set(id, updatedUser);
+    this.usersByEmail.set(updatedUser.email, updatedUser);
+    if (updatedUser.googleId) {
+      this.usersByGoogleId.set(updatedUser.googleId, updatedUser);
+    }
+    
+    return updatedUser;
   }
 
   async getChatSession(sessionId: string): Promise<ChatSession | undefined> {

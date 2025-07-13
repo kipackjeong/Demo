@@ -86,6 +86,7 @@ async function handleWebSocketMessage(
     // Store user message
     await storage.addMessage({
       sessionId: message.sessionId,
+      userId: null, // Will be updated with actual user ID
       role: "user",
       content: message.content || "",
     });
@@ -159,6 +160,7 @@ async function streamResponse(
   // Store the complete response
   await storage.addMessage({
     sessionId,
+    userId: null, // Will be updated with actual user ID
     role: "assistant",
     content: response,
   });

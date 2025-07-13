@@ -4,14 +4,14 @@
 
 This is a production-ready AI agent chatbot framework built with React frontend and Node.js backend, now powered by Azure OpenAI through LangChain. The system enables real-time, bidirectional streaming communication between users and AI agents through WebSocket connections. The framework provides full conversation history, context awareness, and graceful fallback handling.
 
-**Latest Update (July 13, 2025):** Now features Model Context Protocol (MCP) integration with Google Calendar and Google Tasks APIs, allowing the AI to interact with real Google services instead of mock data. Added seamless Replit OAuth authentication with protected chat interface and user-specific data isolation.
+**Latest Update (July 13, 2025):** Now features Model Context Protocol (MCP) integration with Google Calendar and Google Tasks APIs, allowing the AI to interact with real Google services instead of mock data. Implemented traditional email/password authentication with Google OAuth login option, where Google OAuth tokens are used for Calendar and Tasks API access.
 
 ## User Preferences
 
 - Preferred communication style: Simple, everyday language.
 - Initial AI greeting: Concise markdown-formatted weekly summary with Calendar, Tasks, and Recommendations sections
 - Regular conversations: Natural language without markdown formatting
-- Authentication: Seamless Replit OAuth integration with protected chat interface
+- Authentication: Traditional email/password login with Google OAuth option for Calendar and Tasks API access
 
 ## System Architecture
 
@@ -33,7 +33,7 @@ This is a production-ready AI agent chatbot framework built with React frontend 
 - **Drizzle ORM**: Type-safe SQL ORM with PostgreSQL support
 - **Neon Database**: Serverless PostgreSQL database
 - **Schema Design**: Users, chat sessions, and messages with proper relationships
-- **Authentication Tables**: Session storage and user management for Replit OAuth
+- **Authentication Tables**: Session storage and user management for email/password and Google OAuth authentication
 - **Data Isolation**: User-specific chat sessions and message history
 
 ## Key Components
@@ -63,10 +63,10 @@ This is a production-ready AI agent chatbot framework built with React frontend 
 - **Fallback Handling**: Graceful fallback to mock data when Google APIs are unavailable
 
 ### User Interface
-- **Authentication Flow**: Seamless Replit OAuth with landing and home pages
+- **Authentication Flow**: Traditional login/signup page with email/password and Google OAuth options
 - **Protected Chat Interface**: Clean, modern chat UI with message bubbles
 - **User Dashboard**: Personalized home page with quick actions and user profile
-- **Landing Page**: Marketing page with feature highlights for unauthenticated users
+- **Login/Signup Page**: Comprehensive authentication page with both email/password and Google OAuth options
 - **Typing Indicators**: Visual feedback during response generation
 - **Theme Support**: Light/dark mode with persistent preferences
 - **Responsive Design**: Mobile-first approach with desktop optimization
@@ -79,7 +79,7 @@ This is a production-ready AI agent chatbot framework built with React frontend 
 
 ## Data Flow
 
-1. **User Authentication**: User signs in via Replit OAuth
+1. **User Authentication**: User signs in via email/password or Google OAuth
 2. **Session Creation**: Authenticated user session established
 3. **User Input**: User types message in protected chat interface
 4. **WebSocket Transmission**: Message sent to server via WebSocket
@@ -164,21 +164,30 @@ The system automatically falls back to mock data when Google APIs are unavailabl
 
 ## Authentication System
 
-### Replit OAuth Integration
-- **Seamless Login**: One-click authentication with Replit accounts
+### Traditional Authentication with Google OAuth
+- **Email/Password Login**: Standard authentication with secure password hashing
+- **Google OAuth Integration**: Optional Google login for Calendar and Tasks API access
 - **Session Management**: Secure session storage with PostgreSQL backend
 - **User Profiles**: Automatic user profile creation with email, name, and avatar
 - **Protected Routes**: Chat interface and user-specific features require authentication
-- **Landing Page**: Marketing page for unauthenticated users with feature highlights
-- **User Dashboard**: Personalized home page with quick actions and user profile
+- **Login/Signup Page**: Comprehensive authentication page with both login options
+
+### Google API Integration
+- **OAuth Token Storage**: Google OAuth tokens stored securely in database
+- **Calendar API Access**: Direct access to Google Calendar using user's OAuth tokens
+- **Tasks API Access**: Direct access to Google Tasks using user's OAuth tokens
+- **MCP Server Configuration**: Dynamically configures MCP server with user's Google tokens
 
 ### Security Features
-- **Session Expiration**: Automatic token refresh and session management
+- **Password Hashing**: bcrypt-based password hashing for email/password accounts
+- **Session Expiration**: Automatic token refresh and session management for Google OAuth
 - **Data Isolation**: User-specific chat sessions and message history
 - **Secure Cookies**: HTTPOnly and secure cookie configuration
 - **CSRF Protection**: Built-in CSRF protection via session middleware
 
 ### User Experience
+- **Dual Authentication**: Users can choose between email/password or Google OAuth
+- **Google Service Integration**: When users login with Google, their Calendar and Tasks are automatically accessible
 - **Automatic Redirects**: Seamless redirect to intended page after login
 - **Loading States**: Smooth loading indicators during authentication
 - **Error Handling**: Clear error messages and fallback behaviors

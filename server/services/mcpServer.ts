@@ -37,6 +37,29 @@ export class MCPServer {
     this.isConfigured = true;
   }
 
+  // Configure MCP server with user's Google tokens
+  configureWithUserTokens(user: any) {
+    if (user.googleAccessToken && user.googleRefreshToken) {
+      const config: MCPServerConfig = {
+        googleCalendar: {
+          clientId: process.env.GOOGLE_CLIENT_ID!,
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+          redirectUri: "/api/auth/google/callback",
+          accessToken: user.googleAccessToken,
+          refreshToken: user.googleRefreshToken,
+        },
+        googleTasks: {
+          clientId: process.env.GOOGLE_CLIENT_ID!,
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+          redirectUri: "/api/auth/google/callback",
+          accessToken: user.googleAccessToken,
+          refreshToken: user.googleRefreshToken,
+        },
+      };
+      this.configure(config);
+    }
+  }
+
   isReady(): boolean {
     return this.isConfigured;
   }

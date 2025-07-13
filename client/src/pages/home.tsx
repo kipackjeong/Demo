@@ -36,7 +36,10 @@ export default function Home() {
           <div className="flex items-center space-x-4">
             <Button
               variant="outline"
-              onClick={() => window.location.href = '/api/logout'}
+              onClick={() => {
+                fetch('/api/auth/logout', { method: 'POST' })
+                  .then(() => window.location.href = '/auth');
+              }}
             >
               <LogOut className="h-4 w-4 mr-2" />
               Sign Out

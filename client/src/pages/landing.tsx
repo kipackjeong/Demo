@@ -15,7 +15,7 @@ export default function Landing() {
             Your intelligent personal assistant for managing calendar events, tasks, and daily productivity with AI-powered insights.
           </p>
           <Button 
-            onClick={() => window.location.href = '/api/login'}
+            onClick={() => window.location.href = '/auth'}
             size="lg"
             className="px-8 py-3 text-lg"
           >
@@ -97,11 +97,11 @@ export default function Landing() {
             </CardHeader>
             <CardContent>
               <Button 
-                onClick={() => window.location.href = '/api/login'}
+                onClick={() => window.location.href = '/auth'}
                 size="lg"
                 className="px-8 py-3"
               >
-                Sign In with Replit
+                Get Started
               </Button>
             </CardContent>
           </Card>
