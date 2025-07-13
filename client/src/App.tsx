@@ -12,9 +12,12 @@ import Home from "@/pages/home";
 import AuthPage from "@/pages/auth";
 
 function Router() {
+  console.log("Router component rendering");
   const { isAuthenticated, isLoading } = useAuth();
+  console.log("Auth state:", { isAuthenticated, isLoading });
 
   if (isLoading) {
+    console.log("Auth is loading, showing spinner");
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -42,6 +45,8 @@ function Router() {
 }
 
 function App() {
+  console.log("App component rendering");
+  
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
