@@ -91,6 +91,14 @@ export function setupAuth(app: Express) {
         clientID: process.env.GOOGLE_CLIENT_ID!,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
         callbackURL: getCallbackURL(),
+        scope: [
+          'profile',
+          'email',
+          'https://www.googleapis.com/auth/calendar',
+          'https://www.googleapis.com/auth/tasks'
+        ],
+        accessType: 'offline',
+        prompt: 'consent'
       },
       async (accessToken, refreshToken, profile, done) => {
         try {
@@ -129,6 +137,10 @@ export function setupAuth(app: Express) {
               googleRefreshToken: refreshToken,
             });
           }
+          
+          console.log(`Google OAuth: Stored tokens for user ${user.email}`);
+          console.log(`- Access Token: ${accessToken ? 'Present' : 'Missing'}`);
+          console.log(`- Refresh Token: ${refreshToken ? 'Present' : 'Missing'}`);
 
           return done(null, user);
         } catch (error) {
@@ -142,9 +154,13 @@ export function setupAuth(app: Express) {
   passport.deserializeUser(async (id: number, done) => {
     try {
       const user = await storage.getUser(id);
+      if (!user) {
+        return done(null, false);
+      }
       done(null, user);
     } catch (error) {
-      done(error);
+      console.error("Error deserializing user:", error);
+      done(null, false);
     }
   });
 

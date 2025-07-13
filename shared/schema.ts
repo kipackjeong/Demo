@@ -96,6 +96,7 @@ export const webSocketMessageSchema = z.object({
   sessionId: z.string(),
   timestamp: z.string().optional(),
   role: z.enum(["user", "assistant"]).optional(),
+  userId: z.number().optional(),
 });
 
 export type WebSocketMessage = z.infer<typeof webSocketMessageSchema>;

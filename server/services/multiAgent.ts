@@ -65,9 +65,18 @@ export class LifeManagerSystem {
     return date.toISOString();
   }
 
-  constructor() {
+  constructor(user?: any) {
     this.initializeAzureOpenAI();
     this.setupLifeManagerGraph();
+    
+    // Configure MCP server with user's Google tokens if available
+    if (user?.googleAccessToken && user?.googleRefreshToken) {
+      mcpServer.configureWithUserTokens(user);
+      console.log("Life Manager system: MCP server configured with user's Google tokens");
+    } else if (!mcpServer.isReady()) {
+      // If no user tokens but server isn't ready, it means we don't have any tokens
+      console.log("Life Manager system: No Google tokens available, will use mock data");
+    }
   }
 
   private initializeAzureOpenAI() {

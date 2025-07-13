@@ -73,7 +73,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Google OAuth routes
   app.get("/api/auth/google", async (req, res, next) => {
     const passport = require("passport");
-    passport.authenticate("google", { scope: ["profile", "email"] })(req, res, next);
+    passport.authenticate("google", { 
+      scope: [
+        "profile", 
+        "email",
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/tasks"
+      ],
+      accessType: 'offline',
+      prompt: 'consent'
+    })(req, res, next);
   });
 
   app.get("/api/auth/google/callback", async (req, res, next) => {

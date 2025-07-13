@@ -9,12 +9,12 @@ export class AgentService {
   private conversationHistory: Map<string, Array<{ role: string; content: string }>> = new Map();
   private lifeManagerSystem: LifeManagerSystem;
 
-  constructor() {
+  constructor(user?: any) {
     this.initializeAzureOpenAI();
     // Test direct connection
     this.testDirectConnection();
-    // Initialize life manager system
-    this.lifeManagerSystem = new LifeManagerSystem();
+    // Initialize life manager system with user context
+    this.lifeManagerSystem = new LifeManagerSystem(user);
   }
 
   private async testDirectConnection() {

@@ -2,15 +2,23 @@ import { WebSocketServer, WebSocket } from "ws";
 import type { IStorage } from "../storage";
 import { AgentService } from "./agent";
 import type { WebSocketMessage } from "@shared/schema";
+import { mcpServer } from "./mcpServer";
+import { parse } from "cookie";
+import session from "express-session";
 
 export function setupWebSocketServer(wss: WebSocketServer, storage: IStorage) {
-  const agentService = new AgentService();
+  // AgentService will be created per connection with user context
 
   console.log("Setting up WebSocket server listeners...");
 
-  wss.on("connection", (ws: WebSocket, req) => {
+  wss.on("connection", async (ws: WebSocket, req) => {
     console.log("New WebSocket connection established from:", req.socket.remoteAddress);
     console.log("Connection headers:", req.headers);
+
+    // We'll get user info from the message itself since WebSocket doesn't share Express session easily
+    let userId: number | null = null;
+    let user: any = null;
+    let agentService: AgentService = new AgentService();
 
     // Send initial connection success message immediately
     try {
@@ -28,7 +36,7 @@ export function setupWebSocketServer(wss: WebSocketServer, storage: IStorage) {
       try {
         console.log("Received WebSocket message:", data.toString());
         const message: WebSocketMessage = JSON.parse(data.toString());
-        await handleWebSocketMessage(ws, message, storage, agentService);
+        await handleWebSocketMessage(ws, message, storage, agentService, userId || undefined);
       } catch (error) {
         console.error("Error handling WebSocket message:", error);
         if (ws.readyState === WebSocket.OPEN) {
@@ -80,13 +88,28 @@ async function handleWebSocketMessage(
   ws: WebSocket,
   message: WebSocketMessage,
   storage: IStorage,
-  agentService: AgentService
+  agentService: AgentService,
+  userId?: number
 ) {
   if (message.type === "user_message") {
+    // Get user from message if provided
+    let user = null;
+    if (message.userId) {
+      userId = message.userId;
+      user = await storage.getUser(userId);
+      
+      // Configure MCP server and create new agent service with user context
+      if (user?.googleAccessToken && user?.googleRefreshToken) {
+        mcpServer.configureWithUserTokens(user);
+        agentService = new AgentService(user);
+        console.log("Configured services with Google tokens for user:", user.email);
+      }
+    }
+    
     // Store user message
     await storage.addMessage({
       sessionId: message.sessionId,
-      userId: null, // Will be updated with actual user ID
+      userId: userId || null,
       role: "user",
       content: message.content || "",
     });

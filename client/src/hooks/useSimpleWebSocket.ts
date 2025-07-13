@@ -6,9 +6,10 @@ type ConnectionStatus = "connected" | "connecting" | "disconnected";
 interface UseSimpleWebSocketOptions {
   url: string;
   onMessage: (message: WebSocketMessage) => void;
+  userId?: number;
 }
 
-export function useSimpleWebSocket({ url, onMessage }: UseSimpleWebSocketOptions) {
+export function useSimpleWebSocket({ url, onMessage, userId }: UseSimpleWebSocketOptions) {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("disconnected");
   const [error, setError] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -29,6 +30,7 @@ export function useSimpleWebSocket({ url, onMessage }: UseSimpleWebSocketOptions
     
     console.log("Connecting to:", wsUrl);
     
+    // Create WebSocket with custom headers if userId is available
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 

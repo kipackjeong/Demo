@@ -4,7 +4,7 @@
 
 This is a production-ready AI agent chatbot framework built with React frontend and Node.js backend, now powered by Azure OpenAI through LangChain. The system enables real-time, bidirectional streaming communication between users and AI agents through WebSocket connections. The framework provides full conversation history, context awareness, and graceful fallback handling.
 
-**Latest Update (July 13, 2025):** Now features Model Context Protocol (MCP) integration with Google Calendar and Google Tasks APIs, allowing the AI to interact with real Google services instead of mock data. Implemented traditional email/password authentication with Google OAuth login option, where Google OAuth tokens are used for Calendar and Tasks API access.
+**Latest Update (July 13, 2025):** Now features Model Context Protocol (MCP) integration with Google Calendar and Google Tasks APIs, allowing the AI to interact with real Google services instead of mock data. Implemented traditional email/password authentication with Google OAuth login option. Google OAuth now requests Calendar and Tasks permissions directly during login, storing tokens per user for secure multi-user access.
 
 ## User Preferences
 
@@ -146,14 +146,13 @@ This is a production-ready AI agent chatbot framework built with React frontend 
 ### Required Environment Variables
 - `GOOGLE_CLIENT_ID`: OAuth 2.0 client ID from Google Cloud Console
 - `GOOGLE_CLIENT_SECRET`: OAuth 2.0 client secret from Google Cloud Console
-- `GOOGLE_CALENDAR_REFRESH_TOKEN`: Refresh token for Google Calendar API access
-- `GOOGLE_TASKS_REFRESH_TOKEN`: Refresh token for Google Tasks API access
 
-### Setup Instructions
-1. Visit `/google-setup` page in the application for step-by-step setup
-2. Follow the automated OAuth flow to obtain refresh tokens
-3. Add tokens to your environment variables
-4. Test the connection using the built-in test endpoint
+### How It Works
+1. Users login with Google OAuth at `/api/auth/google`
+2. The system requests Calendar and Tasks permissions during login
+3. Google tokens are stored per user in the database
+4. When users send messages, their Google data is automatically accessed
+5. MCP server dynamically configures with each user's tokens
 
 ### API Architecture
 ```

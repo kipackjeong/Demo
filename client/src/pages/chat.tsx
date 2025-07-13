@@ -106,7 +106,8 @@ export default function ChatPage() {
     error 
   } = useSimpleWebSocket({ 
     url: "/chat-ws", 
-    onMessage: handleMessage
+    onMessage: handleMessage,
+    userId: user?.id
   });
 
   // Send initial greeting when connected
@@ -119,7 +120,8 @@ export default function ChatPage() {
           content: "[INITIAL_SUMMARY] Please provide me with a concise weekly summary in markdown format showing my calendar events and tasks.",
           sessionId: sessionId,
           timestamp: new Date().toISOString(),
-          role: "user"
+          role: "user",
+          userId: user?.id
         });
       }, 500); // Small delay to ensure connection is fully established
       
@@ -152,7 +154,8 @@ export default function ChatPage() {
       type: "user_message",
       content,
       sessionId,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      userId: user?.id
     });
   };
 

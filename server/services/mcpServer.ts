@@ -28,7 +28,16 @@ export class MCPServer {
       this.calendarMCP = new GoogleCalendarMCP(config.googleCalendar);
       this.tasksMCP = new GoogleTasksMCP(config.googleTasks);
       this.isConfigured = true;
+    } else {
+      // Initialize with environment variables if available
+      this.initializeFromEnv();
     }
+  }
+  
+  private initializeFromEnv() {
+    // No longer initialize from environment variables
+    // Tokens should come from authenticated users
+    console.log("MCP Server created - waiting for user authentication");
   }
 
   configure(config: MCPServerConfig): void {
