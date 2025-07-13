@@ -117,7 +117,50 @@ export class AgentService {
       }
     }
     
-    // Use life manager system as fallback or for non-initial summaries
+    // For regular chat messages, try direct Azure OpenAI without tools first
+    if (!isInitialSummary && this.azureOpenAI) {
+      try {
+        console.log("Using direct Azure OpenAI for regular chat");
+        const cleanMessage = userMessage.replace("[INITIAL_SUMMARY]", "").trim();
+        
+        // Get conversation history
+        const conversationHistory = this.conversationHistory.get(sessionId) || [];
+        
+        // Build messages array
+        const messages = [
+          new SystemMessage("You are a helpful AI assistant that helps users manage their schedule and tasks. Be conversational and helpful."),
+          ...conversationHistory.map(msg => 
+            msg.role === 'user' ? new HumanMessage(msg.content) : new AIMessage(msg.content)
+          ),
+          new HumanMessage(cleanMessage)
+        ];
+        
+        // Simple Azure OpenAI call without tools
+        const response = await this.azureOpenAI.invoke(messages, {
+          temperature: 0.7,
+          maxTokens: 1000,
+          timeout: 15000, // 15 second timeout
+          maxRetries: 1,
+        });
+        
+        const responseText = response.content as string;
+        
+        // Update conversation history
+        conversationHistory.push(
+          { role: 'user', content: cleanMessage },
+          { role: 'assistant', content: responseText }
+        );
+        this.conversationHistory.set(sessionId, conversationHistory);
+        
+        console.log(`Direct Azure OpenAI response: "${responseText.substring(0, 100)}..."`);
+        return responseText;
+      } catch (error) {
+        console.error("Direct Azure OpenAI failed:", error);
+        // Fall back to Life Manager system
+      }
+    }
+    
+    // Use life manager system as fallback
     if (this.lifeManagerSystem) {
       try {
         console.log("Using Life Manager system for response generation");

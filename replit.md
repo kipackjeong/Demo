@@ -26,6 +26,13 @@ This is a production-ready AI agent chatbot framework built with React frontend 
 - **Dynamic Formatting**: All headers, dates, and recommendations adapt to detected language
 - **Smart Detection**: Uses character pattern matching to identify language
 - **Fixed Tool Binding**: Corrected Azure OpenAI tool binding to use proper invoke parameters
+
+**Bug Fix (July 13, 2025 - 9:37 PM):** Fixed regular chat message timeouts:
+- **Direct Azure OpenAI**: Regular chat messages now use direct Azure OpenAI without complex tool binding
+- **Reduced Timeouts**: Set 15-second timeout for regular chat messages with single retry
+- **Fallback Strategy**: Life Manager system remains as fallback for tool-required operations
+- **Improved Performance**: Regular conversations no longer experience 60-second timeouts
+- **Conversation History**: Maintains proper conversation context across messages
 - **Completed Multi-Agent Architecture (multiAgentOrchestrator.ts)**
   - Orchestrator Agent: Routes requests based on intelligent analysis
   - Calendar Agent: Directly calls calendar tools for efficient data retrieval

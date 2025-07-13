@@ -155,16 +155,28 @@ export class LifeManagerSystemRefactored {
       try {
         // Always provide tools to the model and let it decide intelligently
         console.log("Invoking model with all available tools...");
-        const response = await this.azureOpenAI!.invoke(messages, {
-          tools: this.tools.map(tool => ({
-            type: "function" as const,
-            function: {
-              name: tool.name,
-              description: tool.description,
-              parameters: tool.schema,
-            },
-          })),
-        });
+        
+        // Add timeout for Azure OpenAI call
+        const azureTimeout = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Azure OpenAI timeout")), 30000),
+        );
+        
+        const response = await Promise.race([
+          this.azureOpenAI!.invoke(messages, {
+            tools: this.tools.map(tool => ({
+              type: "function" as const,
+              function: {
+                name: tool.name,
+                description: tool.description,
+                parameters: tool.schema,
+              },
+            })),
+            timeout: 30000, // 30 second timeout
+            maxRetries: 2, // Reduce retries for faster failure
+          }),
+          azureTimeout
+        ]);
+        
         console.log("AGENT RESPONSE:", response.content?.toString());
         
         if (response.tool_calls && response.tool_calls.length > 0) {
@@ -177,6 +189,22 @@ export class LifeManagerSystemRefactored {
         return { messages: [response] };
       } catch (error) {
         console.error("Error invoking model:", error);
+        
+        // For regular chat, fall back to a simple response without tools
+        if (!state.isInitialSummary) {
+          console.log("Falling back to simple response without tools");
+          try {
+            // Try one more time without tools
+            const simpleResponse = await this.azureOpenAI!.invoke(messages, {
+              timeout: 15000,
+              maxRetries: 1,
+            });
+            return { messages: [simpleResponse] };
+          } catch (fallbackError) {
+            console.error("Fallback also failed:", fallbackError);
+          }
+        }
+        
         const errorMessage = new AIMessage(
           "I encountered an error processing your request. Please try again.",
         );
