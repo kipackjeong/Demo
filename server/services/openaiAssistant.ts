@@ -357,7 +357,14 @@ For regular requests, format responses appropriately based on what the user is a
         run = await this.openai.beta.threads.runs.create(threadId, {
           assistant_id: this.assistant.id
         });
+        console.log("Full run object:", JSON.stringify(run, null, 2));
         console.log(`Created run with ID: ${run.id} on thread ${threadId}`);
+        
+        if (!run.id) {
+          console.error("ERROR: Run created but no ID returned!");
+          console.error("Run object:", run);
+          throw new Error("Run creation failed - no ID returned");
+        }
         
         // Store the active run
         this.activeRuns.set(threadId, run.id);
@@ -368,6 +375,7 @@ For regular requests, format responses appropriately based on what the user is a
       }
 
       // Wait for completion and handle tool calls
+      console.log(`About to retrieve run. threadId: ${threadId}, runId: ${run.id}`);
       let runStatus = await this.openai.beta.threads.runs.retrieve(threadId, run.id);
       console.log(`Initial run status: ${runStatus.status}`);
       
