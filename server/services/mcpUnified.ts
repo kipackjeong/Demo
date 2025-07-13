@@ -531,6 +531,9 @@ export class MCPUnifiedServer {
       });
       
       const taskLists = taskListsResponse.data.items || [];
+      console.log(`Found ${taskLists.length} task lists:`);
+      taskLists.forEach(list => console.log(`  - ${list.title} (${list.id})`));
+      
       const allTasks = [];
       
       for (const taskList of taskLists) {
@@ -541,8 +544,13 @@ export class MCPUnifiedServer {
         });
         
         const tasks = response.data.items || [];
+        console.log(`Task list "${taskList.title}": ${tasks.length} tasks`);
+        tasks.forEach(task => console.log(`    - ${task.title} (${task.id})`));
+        
         allTasks.push(...tasks.map(task => this.formatTask(task, taskList.id, taskList.title)));
       }
+      
+      console.log(`Total tasks retrieved: ${allTasks.length}`);
       
       return {
         content: [
