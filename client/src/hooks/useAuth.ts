@@ -8,12 +8,11 @@ export function useAuth() {
     retry: false,
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchOnWindowFocus: false,
-    enabled: false, // Temporarily disable to fix infinite loop
   });
 
   return {
     user: user || null,
-    isLoading: false, // Temporarily set to false
+    isLoading,
     isAuthenticated: !!user,
     error,
   };

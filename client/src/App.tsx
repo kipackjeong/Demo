@@ -11,24 +11,29 @@ import Home from "@/pages/home";
 import AuthPage from "@/pages/auth";
 
 function Router() {
-  // Temporarily disable auth check to fix infinite loop
-  // const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
 
-  // if (isLoading) {
-  //   return (
-  //     <div className="flex items-center justify-center min-h-screen">
-  //       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-  //     </div>
-  //   );
-  // }
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <Switch>
       <Route path="/auth" component={AuthPage} />
-      <Route path="/" component={AuthPage} />
-      <Route path="/chat" component={ChatPage} />
       <Route path="/google-setup" component={GoogleSetup} />
-      <Route path="/home" component={Home} />
+      {isAuthenticated ? (
+        <>
+          <Route path="/" component={Home} />
+          <Route path="/chat" component={ChatPage} />
+          <Route path="/home" component={Home} />
+        </>
+      ) : (
+        <Route path="/" component={AuthPage} />
+      )}
       <Route component={NotFound} />
     </Switch>
   );

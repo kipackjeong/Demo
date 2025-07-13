@@ -15,6 +15,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ status: "ok" });
   });
 
+  // Auth routes
+  app.get("/api/auth/user", (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    res.json(req.user);
+  });
+
+  app.post("/api/auth/login", async (req, res, next) => {
+    const passport = require("passport");
+    passport.authenticate("local", (err: any, user: any, info: any) => {
+      if (err) return next(err);
+      if (!user) return res.status(400).json({ message: info?.message || "Invalid credentials" });
+      
+      req.logIn(user, (err) => {
+        if (err) return next(err);
+        res.json(user);
+      });
+    })(req, res, next);
+  });
+
+  app.post("/api/auth/register", async (req, res, next) => {
+    try {
+      const { email, password, firstName, lastName } = req.body;
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ message: "User already exists" });
+      }
+      
+      // Create new user
+      const user = await storage.createUser({
+        email,
+        password,
+        firstName,
+        lastName,
+      });
+      
+      req.logIn(user, (err) => {
+        if (err) return next(err);
+        res.status(201).json(user);
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.logout((err) => {
+      if (err) return res.status(500).json({ message: "Logout failed" });
+      res.json({ message: "Logged out successfully" });
+    });
+  });
+
+  // Google OAuth routes
+  app.get("/api/auth/google", async (req, res, next) => {
+    const passport = require("passport");
+    passport.authenticate("google", { scope: ["profile", "email"] })(req, res, next);
+  });
+
+  app.get("/api/auth/google/callback", async (req, res, next) => {
+    const passport = require("passport");
+    passport.authenticate("google", {
+      successRedirect: "/",
+      failureRedirect: "/auth",
+    })(req, res, next);
+  });
+
   // Google API OAuth setup and callback routes
   app.get("/api/google/setup", async (req, res) => {
     try {
