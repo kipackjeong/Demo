@@ -72,56 +72,55 @@ export class IntelligentAgent {
       // Get available tools
       const tools = this.mcpToolAdapter.getTools();
       
-      // Create system message with intelligent instructions
-      const systemMessage = this.createSystemMessage(isInitialSummary);
+      // Analyze user request and determine which tools to use
+      const toolsToCall = await this.determineToolsToCall(userMessage, isInitialSummary);
       
-      // Create conversation messages
-      const messages = [
-        new SystemMessage(systemMessage),
-        ...this.conversationHistory.map(msg => 
-          msg.role === "user" ? new HumanMessage(msg.content) : new SystemMessage(msg.content)
-        )
-      ];
-
-      // Bind tools to the model
-      const modelWithTools = this.azureOpenAI.bindTools(tools);
-
-      // Generate response with tool calling
-      const response = await modelWithTools.invoke(messages);
+      // Execute the selected tools
+      const toolResults: Array<{ tool: string; result: any }> = [];
       
-      // Process tool calls if any
-      let finalResponse = response.content as string;
-      
-      if (response.tool_calls && response.tool_calls.length > 0) {
-        console.log(`Intelligent Agent: Processing ${response.tool_calls.length} tool calls`);
-        
-        // Execute all tool calls
-        const toolResults = await Promise.all(
-          response.tool_calls.map(async (toolCall: any) => {
-            const tool = tools.find(t => t.name === toolCall.name);
-            if (tool) {
-              console.log(`Intelligent Agent: Executing tool: ${toolCall.name}`);
-              const result = await tool.invoke(toolCall.args);
-              return { tool: toolCall.name, result };
-            }
-            return { tool: toolCall.name, result: "Tool not found" };
-          })
-        );
+      for (const toolInfo of toolsToCall) {
+        const tool = tools.find(t => t.name === toolInfo.name);
+        if (tool) {
+          console.log(`Intelligent Agent: Executing tool: ${toolInfo.name}`);
+          try {
+            const result = await tool.invoke(toolInfo.args || {});
+            toolResults.push({ tool: toolInfo.name, result });
+          } catch (error) {
+            console.error(`Tool ${toolInfo.name} failed:`, error);
+            toolResults.push({ tool: toolInfo.name, result: `Error: ${error.message}` });
+          }
+        }
+      }
 
-        // Create a follow-up message with tool results
+      // Format the response based on tool results
+      let finalResponse: string;
+      
+      if (toolResults.length > 0) {
+        // Create a message with tool results
         const toolResultsMessage = toolResults.map(({ tool, result }) => {
           return `Tool "${tool}" result:\n${result}`;
         }).join('\n\n');
 
-        // Get final response with tool results
+        // Get AI to format the response nicely
         const finalMessages = [
           new SystemMessage(this.createFormattingSystemMessage(isInitialSummary)),
           new HumanMessage(userMessage),
-          new SystemMessage(`Here are the results from the tools you called:\n\n${toolResultsMessage}\n\nNow provide a helpful, formatted response to the user based on this data.`)
+          new SystemMessage(`Here are the results from the tools:\n\n${toolResultsMessage}\n\nNow provide a helpful, formatted response to the user based on this data.`)
         ];
 
         const finalResponseResult = await this.azureOpenAI.invoke(finalMessages);
         finalResponse = finalResponseResult.content as string;
+      } else {
+        // No tools were called, generate a regular response
+        const messages = [
+          new SystemMessage(this.createSystemMessage(isInitialSummary)),
+          ...this.conversationHistory.map(msg => 
+            msg.role === "user" ? new HumanMessage(msg.content) : new SystemMessage(msg.content)
+          )
+        ];
+        
+        const response = await this.azureOpenAI.invoke(messages);
+        finalResponse = response.content as string;
       }
 
       // Add response to conversation history
@@ -138,6 +137,72 @@ export class IntelligentAgent {
       console.error("Intelligent Agent: Error generating response:", error);
       return this.getFallbackResponse(userMessage, isInitialSummary);
     }
+  }
+
+  /**
+   * Determine which tools to call based on user message
+   */
+  private async determineToolsToCall(userMessage: string, isInitialSummary: boolean): Promise<Array<{ name: string; args?: any }>> {
+    const toolsToCall: Array<{ name: string; args?: any }> = [];
+    const messageLower = userMessage.toLowerCase();
+
+    // Initial summary always needs calendar and task data
+    if (isInitialSummary) {
+      // Get next 3 days of events
+      const today = new Date();
+      const threeDaysLater = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+      toolsToCall.push({
+        name: "get_calendar_events",
+        args: {
+          calendarId: "primary",
+          timeMin: today.toISOString(),
+          timeMax: threeDaysLater.toISOString()
+        }
+      });
+      toolsToCall.push({ name: "get_all_tasks" });
+      return toolsToCall;
+    }
+
+    // Calendar-related requests
+    if (messageLower.includes("calendar") || messageLower.includes("event") || messageLower.includes("schedule") || messageLower.includes("appointment")) {
+      if (messageLower.includes("this year") || messageLower.includes("all") && messageLower.includes("year")) {
+        toolsToCall.push({ name: "get_this_year_events" });
+      } else if (messageLower.includes("this month") || messageLower.includes("month")) {
+        toolsToCall.push({ name: "get_this_month_events" });
+      } else if (messageLower.includes("this week") || messageLower.includes("week")) {
+        toolsToCall.push({ name: "get_this_week_events" });
+      } else if (messageLower.includes("today")) {
+        toolsToCall.push({ name: "get_today_events" });
+      } else {
+        // Default to this week
+        toolsToCall.push({ name: "get_this_week_events" });
+      }
+    }
+
+    // Task-related requests
+    if (messageLower.includes("task") || messageLower.includes("todo") || messageLower.includes("to do") || messageLower.includes("to-do")) {
+      if (messageLower.includes("priority") || messageLower.includes("organized by priority")) {
+        toolsToCall.push({ name: "get_all_tasks" });
+      } else if (messageLower.includes("high priority") || messageLower.includes("urgent") || messageLower.includes("important")) {
+        toolsToCall.push({ name: "get_high_priority_tasks" });
+      } else if (messageLower.includes("overdue") || messageLower.includes("past due")) {
+        toolsToCall.push({ name: "get_overdue_tasks" });
+      } else if (messageLower.includes("today")) {
+        toolsToCall.push({ name: "get_tasks_due_today" });
+      } else if (messageLower.includes("this week")) {
+        toolsToCall.push({ name: "get_tasks_due_this_week" });
+      } else if (messageLower.includes("all") || messageLower.includes("list") || messageLower.includes("show")) {
+        toolsToCall.push({ name: "get_all_tasks" });
+      }
+    }
+
+    // If user asks for everything or their schedule
+    if ((messageLower.includes("what do i have") || messageLower.includes("my schedule") || messageLower.includes("show me everything")) && toolsToCall.length === 0) {
+      toolsToCall.push({ name: "get_this_week_events" });
+      toolsToCall.push({ name: "get_all_tasks" });
+    }
+
+    return toolsToCall;
   }
 
   private createSystemMessage(isInitialSummary: boolean): string {
