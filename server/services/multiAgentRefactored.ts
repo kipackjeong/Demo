@@ -153,376 +153,20 @@ export class LifeManagerSystemRefactored {
       }
 
       try {
-        // Analyze user message for direct action requests
-        const userMessage = state.userMessage.toLowerCase();
-        const isActionRequest = userMessage.includes("remove") ||
-                               userMessage.includes("delete") ||
-                               userMessage.includes("create") ||
-                               userMessage.includes("add") ||
-                               userMessage.includes("update") ||
-                               userMessage.includes("complete") ||
-                               userMessage.includes("show me") ||
-                               userMessage.includes("list") ||
-                               userMessage.includes("get");
-
-        // If this is a direct action request, bind tools and let the model use them
-        if (isActionRequest && !state.isInitialSummary) {
-          console.log("Direct action request detected, invoking model with tools");
-          const modelWithTools = this.azureOpenAI!.bindTools(this.tools);
-          const response = await modelWithTools.invoke(messages);
-          console.log("Model response with tools:", response);
-          return { messages: [response] };
-        }
-
-        console.log("Invoking model without tools first...");
-        // For conversational responses, try without tools first
-        const simpleResponse = await this.azureOpenAI!.invoke(messages);
-        console.log("AGENT RESPONSE:", simpleResponse.content?.toString());
+        // Always provide tools to the model and let it decide intelligently
+        console.log("Invoking model with all available tools...");
+        const modelWithTools = this.azureOpenAI!.bindTools(this.tools);
+        const response = await modelWithTools.invoke(messages);
+        console.log("AGENT RESPONSE:", response.content?.toString());
         
-        // Check if the response indicates the need for tools
-        const responseText = simpleResponse.content?.toString() || "";
-        const needsTaskCreation = responseText.toLowerCase().includes("create a task") || 
-                                 responseText.toLowerCase().includes("i'll create") ||
-                                 responseText.toLowerCase().includes("let me create") ||
-                                 responseText.toLowerCase().includes("would you like me to create") ||
-                                 responseText.toLowerCase().includes("add this as a task");
-                                 
-        // Also check if the user's message is clearly asking to create a task
-        const userWantsTask = state.userMessage.toLowerCase().includes("i have to") ||
-                             state.userMessage.toLowerCase().includes("i need to") ||
-                             state.userMessage.toLowerCase().includes("remind me");
-        
-        // Check if user is asking for their schedule/tasks
-        const isAskingForSchedule = state.userMessage.toLowerCase().includes("what do i need to do") ||
-                                   state.userMessage.toLowerCase().includes("what's on my") ||
-                                   state.userMessage.toLowerCase().includes("show me my") ||
-                                   state.userMessage.toLowerCase().includes("my schedule") ||
-                                   state.userMessage.toLowerCase().includes("my tasks") ||
-                                   state.userMessage.toLowerCase().includes("my calendar");
-
-        // If user is asking for their schedule, fetch calendar and tasks
-        if (isAskingForSchedule && !state.isInitialSummary) {
-          console.log("User asking for schedule, fetching calendar and tasks");
-          
-          const toolCalls = [
-            {
-              id: "call_1",
-              type: "function" as const,
-              function: {
-                name: "get_calendar_events",
-                arguments: JSON.stringify({
-                  calendarId: "primary",
-                  timeMin: new Date().toISOString(),
-                  timeMax: new Date(
-                    Date.now() + 7 * 24 * 60 * 60 * 1000,
-                  ).toISOString(), // 7 days from now
-                }),
-              },
-            },
-            {
-              id: "call_2",
-              type: "function" as const,
-              function: {
-                name: "get_tasks",
-                arguments: JSON.stringify({
-                  taskListId: "@default",
-                }),
-              },
-            },
-          ];
-
-          const responseWithTools = new AIMessage({
-            content: simpleResponse.content,
-            tool_calls: toolCalls,
-          });
-
-          return { messages: [responseWithTools] };
+        if (response.tool_calls && response.tool_calls.length > 0) {
+          console.log(`Model decided to use ${response.tool_calls.length} tools:`, 
+            response.tool_calls.map(tc => tc.function.name).join(', '));
+        } else {
+          console.log("Model decided not to use any tools for this response");
         }
         
-        // If we need to create a task, manually create the tool call
-        if ((needsTaskCreation || userWantsTask) && !state.isInitialSummary && !isAskingForSchedule) {
-          console.log("Response needs task creation, creating tool call");
-          
-          // Extract task details from conversation context
-          let taskTitle = "Call doctor for appointment";
-          let taskNotes = "Need to call to make a doctor appointment";
-          
-          // Look through conversation history and current message for more context
-          const allContent = state.userMessage + " " + state.messages.map(m => m.content?.toString() || "").join(" ");
-          
-          if (allContent.includes("tomorrow")) {
-            taskTitle = "Call doctor for appointment tomorrow";
-            taskNotes = "Remember to call the doctor's office tomorrow to schedule an appointment";
-            if (allContent.includes("morning")) {
-              taskTitle = "Call doctor for appointment tomorrow morning";
-              taskNotes = "Remember to call the doctor's office in the morning to schedule an appointment";
-            }
-          }
-          
-          const toolCall = {
-            id: "call_task_1",
-            type: "function" as const,
-            function: {
-              name: "create_task",
-              arguments: JSON.stringify({
-                taskListId: "@default",
-                task: {
-                  title: taskTitle,
-                  notes: taskNotes,
-                  priority: "high"
-                }
-              }),
-            },
-          };
-          
-          const responseWithTools = new AIMessage({
-            content: simpleResponse.content,
-            tool_calls: [toolCall],
-          });
-          
-          return { messages: [responseWithTools] };
-        }
-
-        // For initial summary, we need to manually create tool calls only if we haven't called tools yet
-        if (state.isInitialSummary && state.messages.length === 0) {
-          // Create manual tool calls for calendar and tasks
-          const toolCalls = [
-            {
-              id: "call_1",
-              type: "function" as const,
-              function: {
-                name: "get_calendar_events",
-                arguments: JSON.stringify({
-                  calendarId: "primary",
-                  timeMin: new Date().toISOString(),
-                  timeMax: new Date(
-                    Date.now() + 3 * 24 * 60 * 60 * 1000,
-                  ).toISOString(), // 3 days from now
-                }),
-              },
-            },
-            {
-              id: "call_2",
-              type: "function" as const,
-              function: {
-                name: "get_tasks",
-                arguments: JSON.stringify({
-                  taskListId: "@default",
-                }),
-              },
-            },
-          ];
-
-          const responseWithTools = new AIMessage({
-            content:
-              "Let me fetch your calendar events and tasks for the week.",
-            tool_calls: toolCalls,
-          });
-
-          return { messages: [responseWithTools] };
-        }
-
-        // If we're processing after tools have been called, ask the model to format the response
-        const hasToolMessages = state.messages.some(
-          (m) => m.constructor.name === "ToolMessage",
-        );
-        if (state.isInitialSummary && hasToolMessages) {
-          // Extract tool results
-          let calendarData: any[] = [];
-          let tasksData: any[] = [];
-
-          for (const message of state.messages) {
-            if (message.constructor.name === "ToolMessage") {
-              try {
-                const toolMessage = message as any;
-                const result = JSON.parse(toolMessage.content);
-
-                // Check if this is calendar data
-                if (Array.isArray(result) && result.length > 0) {
-                  if (result[0].hasOwnProperty("start")) {
-                    calendarData = result;
-                  } else if (
-                    result[0].hasOwnProperty("notes") ||
-                    result[0].hasOwnProperty("title")
-                  ) {
-                    tasksData = result;
-                  }
-                }
-              } catch (e) {
-                console.log("Error parsing tool message:", e);
-              }
-            }
-          }
-
-          // Create formatted response
-          let formattedResponse = "## 📅 This Week's Calendar\n\n";
-
-          if (calendarData.length > 0) {
-            for (const event of calendarData) {
-              const startDate = new Date(event.start);
-              const dateStr = startDate.toLocaleDateString("en-US", {
-                weekday: "long",
-                month: "long",
-                day: "numeric",
-              });
-              const timeStr = startDate.toLocaleTimeString("en-US", {
-                hour: "numeric",
-                minute: "2-digit",
-                hour12: true,
-              });
-
-              formattedResponse += `- **${event.title || "Untitled Event"}** - ${dateStr}, ${timeStr}\n`;
-              if (event.location) {
-                formattedResponse += `  Location: ${event.location}\n`;
-              }
-              if (event.description) {
-                formattedResponse += `  ${event.description}\n`;
-              }
-            }
-          } else {
-            formattedResponse += "No events scheduled this week.\n";
-          }
-
-          formattedResponse += "\n## ✅ Tasks\n\n";
-
-          if (tasksData.length > 0) {
-            const highPriority = tasksData.filter((t) => t.priority === "high");
-            const mediumPriority = tasksData.filter(
-              (t) => t.priority === "medium",
-            );
-            const lowPriority = tasksData.filter((t) => t.priority === "low");
-
-            if (highPriority.length > 0) {
-              formattedResponse += "### High Priority\n";
-              for (const task of highPriority) {
-                formattedResponse += `- ${task.title}`;
-                if (task.dueDate) {
-                  formattedResponse += ` (Due: ${new Date(task.dueDate).toLocaleDateString()})`;
-                }
-                formattedResponse += "\n";
-              }
-              formattedResponse += "\n";
-            }
-
-            if (mediumPriority.length > 0) {
-              formattedResponse += "### Medium Priority\n";
-              for (const task of mediumPriority) {
-                formattedResponse += `- ${task.title}`;
-                if (task.dueDate) {
-                  formattedResponse += ` (Due: ${new Date(task.dueDate).toLocaleDateString()})`;
-                }
-                formattedResponse += "\n";
-              }
-              formattedResponse += "\n";
-            }
-
-            if (lowPriority.length > 0) {
-              formattedResponse += "### Low Priority\n";
-              for (const task of lowPriority) {
-                formattedResponse += `- ${task.title}`;
-                if (task.dueDate) {
-                  formattedResponse += ` (Due: ${new Date(task.dueDate).toLocaleDateString()})`;
-                }
-                formattedResponse += "\n";
-              }
-              formattedResponse += "\n";
-            }
-          } else {
-            formattedResponse += "No active tasks.\n\n";
-          }
-
-          formattedResponse += "## 💡 Recommendations\n\n";
-          formattedResponse +=
-            "1. Review your upcoming events and prepare any necessary materials\n";
-          formattedResponse +=
-            "2. Focus on completing high-priority tasks first\n";
-          formattedResponse +=
-            "3. Consider scheduling time for any overdue tasks\n";
-
-          const finalResponse = new AIMessage(formattedResponse);
-          console.log(
-            "Formatting response generated directly from tool results",
-          );
-          return { messages: [finalResponse] };
-        }
-
-        // For regular messages, check if tools are needed
-        const needsTools = responseText.toLowerCase().includes("let me") || 
-                          responseText.toLowerCase().includes("i'll") ||
-                          responseText.toLowerCase().includes("fetching") ||
-                          responseText.toLowerCase().includes("checking");
-        
-        if (!needsTools && !state.isInitialSummary) {
-          console.log("Simple conversational response - no tools needed");
-          return { messages: [simpleResponse] };
-        }
-        
-        // Otherwise, directly execute the necessary tools based on the request
-        console.log("Response needs tools, executing directly");
-        
-        // Parse the user message to determine what tools to call
-        const userMessageLower = state.userMessage.toLowerCase();
-        const toolResults = [];
-        
-        try {
-          if (userMessageLower.includes("create") && userMessageLower.includes("task")) {
-            // Extract task details from the message
-            const titleMatch = userMessageLower.match(/["']([^"']+)["']/);
-            const taskTitle = titleMatch ? titleMatch[1] : "New Task";
-            
-            // Find task list name
-            const listMatch = userMessageLower.match(/in the ["']([^"']+)["'] list/i);
-            const taskList = listMatch ? listMatch[1] : "My Tasks";
-            
-            // Determine priority
-            const priority = userMessageLower.includes("high priority") ? "high" : 
-                           userMessageLower.includes("low priority") ? "low" : "medium";
-            
-            console.log(`Creating task: "${taskTitle}" in list "${taskList}" with ${priority} priority`);
-            
-            // Find the create_task tool
-            const createTaskTool = this.tools.find(t => t.name === "create_task");
-            if (createTaskTool) {
-              const result = await createTaskTool.func({
-                taskListId: taskList,
-                title: taskTitle,
-                notes: "",
-                priority: priority
-              });
-              
-              toolResults.push({
-                tool: "create_task",
-                result: result
-              });
-            }
-          }
-          
-          // Format the response based on tool results
-          let responseText = "";
-          if (toolResults.length > 0 && toolResults[0].result) {
-            const taskResult = JSON.parse(toolResults[0].result);
-            if (taskResult.error) {
-              responseText = `I encountered an error creating the task: ${taskResult.error}`;
-            } else {
-              responseText = `✓ I've created the task "${taskResult.title}" in the "${taskResult.taskListTitle || 'My Tasks'}" list with ${taskResult.priority || 'medium'} priority.`;
-              if (taskResult.id) {
-                responseText += ` The task ID is ${taskResult.id}.`;
-              }
-            }
-          } else {
-            responseText = simpleResponse.content?.toString() || "";
-          }
-          
-          const finalResponse = new AIMessage(responseText);
-          return { messages: [finalResponse] };
-          
-        } catch (error) {
-          console.error("Error executing tools directly:", error);
-          const errorResponse = new AIMessage(
-            "I understand you want to create a task, but I encountered an error. Please try again."
-          );
-          return { messages: [errorResponse] };
-        }
+        return { messages: [response] };
       } catch (error) {
         console.error("Error invoking model:", error);
         const errorMessage = new AIMessage(
@@ -736,29 +380,36 @@ IMPORTANT RULES:
 - Use proper markdown formatting`;
     }
 
-    return `You are a helpful life management assistant with access to the user's Google Calendar and Tasks.
+    return `You are an intelligent life management assistant with access to the user's Google Calendar and Tasks.
 
-You have access to the following tools:
-- get_calendar_events: Fetch calendar events
+You have access to these tools:
+- get_calendar_events: Fetch calendar events for any time range
 - create_calendar_event: Create new calendar events
 - list_calendars: List available calendars
-- get_tasks: Fetch tasks
-- get_task_lists: Get task lists
+- get_tasks: Fetch tasks from task lists
+- get_task_lists: Get available task lists
 - create_task: Create new tasks
 - complete_task: Mark tasks as completed
 
-When the user asks to:
-- Schedule/add/create events → Use create_calendar_event
-- View calendar/events → Use get_calendar_events
-- Add/create tasks → Use create_task
-- View tasks → Use get_tasks
-- Complete/finish tasks → Use complete_task
+Tool Usage Guidelines:
+1. Analyze the user's request and determine the appropriate action
+2. Use multiple tools if needed (e.g., fetch both calendar and tasks for schedule overview)
+3. For questions about schedule/agenda → Use get_calendar_events AND get_tasks
+4. For creating reminders/todos → Use create_task
+5. For scheduling meetings/appointments → Use create_calendar_event
+6. Always confirm successful actions with specific details
 
-IMPORTANT RULES:
-- Always use tools to interact with calendar and tasks
-- Use ONLY English in your responses
-- Be helpful and conversational
-- Provide clear confirmations after actions`;
+Response Guidelines:
+- For schedule queries: Format events and tasks in a clear, organized manner
+- For action requests: Execute the action and confirm with details
+- For conversations: Be helpful and natural, use tools when relevant
+- Use markdown formatting for better readability when showing lists
+
+IMPORTANT:
+- Think step by step about what the user needs
+- Use tools proactively to fulfill requests
+- Don't make assumptions - use the data from tools
+- Keep responses concise but informative`;
   }
 
   private formatScheduleResponse(

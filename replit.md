@@ -12,6 +12,13 @@ This is a production-ready AI agent chatbot framework built with React frontend 
 - Updated formatter to handle both initial summaries and regular schedule requests
 - System now correctly fetches calendar events and tasks when user asks about their schedule
 - Renamed `formatInitialSummary` to `formatScheduleResponse` for broader usage
+
+**Major Refactor (July 13, 2025 - 9:20 PM):** Removed hardcoded action routing:
+- **Intelligent Tool Usage**: AI agent now always has access to all tools and decides when to use them
+- **Removed Hardcoded Logic**: Eliminated all hardcoded action detection and manual tool call creation
+- **Enhanced System Prompt**: Updated prompt to guide AI on intelligent tool selection based on user intent
+- **Simplified Architecture**: Cleaned up over 200 lines of redundant hardcoded logic
+- **Better User Experience**: AI can now handle complex requests requiring multiple tools automatically
 - **Completed Multi-Agent Architecture (multiAgentOrchestrator.ts)**
   - Orchestrator Agent: Routes requests based on intelligent analysis
   - Calendar Agent: Directly calls calendar tools for efficient data retrieval
