@@ -282,8 +282,10 @@ export class LifeManagerSystemRefactored {
           return { messages: [finalResponse] };
         }
 
-        // For regular messages, just return the response
-        return { messages: [simpleResponse] };
+        // For regular messages, bind tools to the model and invoke
+        const modelWithTools = this.azureOpenAI!.bindTools(this.tools);
+        const responseWithTools = await modelWithTools.invoke(messages);
+        return { messages: [responseWithTools] };
       } catch (error) {
         console.error("Error invoking model:", error);
         const errorMessage = new AIMessage(
@@ -293,44 +295,68 @@ export class LifeManagerSystemRefactored {
       }
     });
 
-    // Add the tool node with wrapper for logging
+    // Add the tool node with manual tool execution
     workflow.addNode("tools", async (state: LifeManagerState) => {
       console.log("\n=== TOOLS NODE EXECUTION ===");
       const lastMessage = state.messages[state.messages.length - 1];
 
-      if (lastMessage instanceof AIMessage && lastMessage.tool_calls) {
-        console.log(
-          "Tool calls to execute:",
-          lastMessage.tool_calls.map((tc) => tc.function.name),
-        );
+      if (!(lastMessage instanceof AIMessage) || !lastMessage.tool_calls) {
+        console.log("No tool calls found in last message");
+        return { messages: [] };
       }
 
-      const toolNode = new ToolNode(this.tools);
-      try {
-        const result = await toolNode.invoke(state);
+      console.log(
+        "Tool calls to execute:",
+        lastMessage.tool_calls.map((tc) => tc.function.name),
+      );
 
-        // Log tool responses
-        if (result.messages) {
-          console.log(
-            `Tools executed successfully. ${result.messages.length} tool responses generated`,
+      const toolMessages: ToolMessage[] = [];
+
+      // Manually execute each tool call
+      for (const toolCall of lastMessage.tool_calls) {
+        const toolName = toolCall.function.name;
+        const toolArgs = JSON.parse(toolCall.function.arguments);
+        
+        console.log(`Executing tool: ${toolName} with args:`, toolArgs);
+        
+        // Find the tool by name
+        const tool = this.tools.find(t => t.name === toolName);
+        
+        if (!tool) {
+          console.error(`Tool ${toolName} not found in available tools`);
+          toolMessages.push(
+            new ToolMessage({
+              content: JSON.stringify({ error: `Tool ${toolName} not found` }),
+              tool_call_id: toolCall.id,
+            })
           );
-          for (let i = 0; i < result.messages.length; i++) {
-            const msg = result.messages[i];
-            if (msg instanceof ToolMessage) {
-              const content = msg.content as string;
-              console.log(
-                `\nTOOL RESPONSE ${i + 1}:`,
-                content.substring(0, 300) + "...",
-              );
-            }
-          }
+          continue;
         }
-
-        return result;
-      } catch (error) {
-        console.error("Tool node error:", error);
-        throw error;
+        
+        try {
+          // Execute the tool
+          const result = await tool.func(toolArgs);
+          console.log(`Tool ${toolName} executed successfully`);
+          
+          toolMessages.push(
+            new ToolMessage({
+              content: result,
+              tool_call_id: toolCall.id,
+            })
+          );
+        } catch (error) {
+          console.error(`Error executing tool ${toolName}:`, error);
+          toolMessages.push(
+            new ToolMessage({
+              content: JSON.stringify({ error: error.message }),
+              tool_call_id: toolCall.id,
+            })
+          );
+        }
       }
+
+      console.log(`Tools executed. ${toolMessages.length} tool responses generated`);
+      return { messages: toolMessages };
     });
 
     // Add the response formatter node
@@ -370,6 +396,17 @@ export class LifeManagerSystemRefactored {
 
       console.log("\n=== ROUTING DECISION ===");
       console.log("Last message type:", lastMessage?.constructor.name);
+      console.log("Total messages:", state.messages.length);
+
+      // Count how many times we've been through the agent node
+      const aiMessageCount = state.messages.filter(m => m instanceof AIMessage).length;
+      console.log("AI message count:", aiMessageCount);
+
+      // If we've already processed tools and generated a response, go to formatter
+      if (aiMessageCount >= 2 && state.messages.some(m => m instanceof ToolMessage)) {
+        console.log("Decision: Route to FORMATTER - already processed tools");
+        return "formatter";
+      }
 
       // If the last message has tool calls, route to tools
       if (
@@ -383,24 +420,6 @@ export class LifeManagerSystemRefactored {
           "tool calls",
         );
         return "tools";
-      }
-
-      // If we have tool messages and this is an initial summary that was just formatted, we're done
-      const hasToolMessages = state.messages.some(
-        (m) => m.constructor.name === "ToolMessage",
-      );
-      if (
-        state.isInitialSummary &&
-        hasToolMessages &&
-        lastMessage instanceof AIMessage
-      ) {
-        const content = lastMessage.content as string;
-        if (content.includes("## 📅 Next 3 Days")) {
-          console.log(
-            "Decision: Route to FORMATTER - initial summary complete",
-          );
-          return "formatter";
-        }
       }
 
       // Otherwise, we're done
@@ -489,6 +508,12 @@ IMPORTANT RULES:
     response: string,
     messages: BaseMessage[],
   ): string {
+    // If response already contains proper formatting markers, return it as-is
+    if (response.includes("## 📅") && response.includes("## ✅") && response.includes("## 💡")) {
+      console.log("Response already properly formatted, returning as-is");
+      return response;
+    }
+
     // Extract tool results from messages
     let calendarData: any[] = [];
     let tasksData: any[] = [];
@@ -499,131 +524,85 @@ IMPORTANT RULES:
           const result = JSON.parse(message.content as string);
 
           // Check if this is calendar data
-          if (
-            Array.isArray(result) &&
-            result.length > 0 &&
-            result[0].hasOwnProperty("start")
-          ) {
-            calendarData = result;
-          }
-          // Check if this is task data
-          else if (
-            Array.isArray(result) &&
-            result.length > 0 &&
-            result[0].hasOwnProperty("notes")
-          ) {
-            tasksData = result;
+          if (Array.isArray(result)) {
+            // Check if empty array or has calendar-like properties
+            if (result.length === 0 || (result[0] && (result[0].start || result[0].startTime))) {
+              calendarData = result;
+            }
+            // Otherwise assume it's tasks data
+            else if (result[0] && (result[0].title || result[0].notes !== undefined)) {
+              tasksData = result;
+            }
           }
         } catch (e) {
-          // Ignore parsing errors
+          console.error("Error parsing tool message:", e);
         }
       }
     }
 
-    // If we have raw data, format it properly
-    if (calendarData.length > 0 || tasksData.length > 0) {
-      let formattedResponse = "## 📅 This Week's Calendar\n\n";
+    console.log(`Formatting with ${calendarData.length} events and ${tasksData.length} tasks`);
 
-      // Format calendar events
-      if (calendarData.length > 0) {
-        const sortedEvents = calendarData.sort(
-          (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime(),
-        );
+    // Format the response properly
+    let formattedResponse = "## 📅 Next 3 Days\n\n";
 
-        for (const event of sortedEvents) {
-          const startDate = new Date(event.start);
-          const dateStr = startDate.toLocaleDateString("en-US", {
-            weekday: "long",
-            month: "long",
-            day: "numeric",
-          });
-          const timeStr = startDate.toLocaleTimeString("en-US", {
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-          });
+    // Format calendar events
+    if (calendarData.length > 0) {
+      const sortedEvents = calendarData.sort(
+        (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime(),
+      );
 
-          formattedResponse += `- **${event.title || "Untitled Event"}** - ${dateStr}, ${timeStr}\n`;
-          if (event.location) {
-            formattedResponse += `  Location: ${event.location}\n`;
-          }
-          if (event.description) {
-            formattedResponse += `  ${event.description}\n`;
-          }
-          formattedResponse += "\n";
+      for (const event of sortedEvents) {
+        const startDate = new Date(event.start);
+        const dateStr = startDate.toLocaleDateString("en-US", {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+        });
+        const timeStr = startDate.toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        });
+
+        formattedResponse += `- **${event.title || "Untitled Event"}** - ${dateStr}, ${timeStr}\n`;
+        if (event.location) {
+          formattedResponse += `  Location: ${event.location}\n`;
         }
-      } else {
-        formattedResponse += "No upcoming events scheduled.\n";
+        if (event.description) {
+          formattedResponse += `  ${event.description}\n`;
+        }
+        formattedResponse += "\n";
       }
-
-      formattedResponse += "\n## ✅ Tasks\n\n";
-
-      // Format tasks by priority
-      if (tasksData.length > 0) {
-        const highPriority = tasksData.filter(
-          (t) => t.priority === "high" && !t.completed,
-        );
-        const mediumPriority = tasksData.filter(
-          (t) => t.priority === "medium" && !t.completed,
-        );
-        const lowPriority = tasksData.filter(
-          (t) => t.priority === "low" && !t.completed,
-        );
-
-        if (highPriority.length > 0) {
-          formattedResponse += "### High Priority\n";
-          for (const task of highPriority) {
-            formattedResponse += `- ${task.title}`;
-            if (task.due) {
-              const dueDate = new Date(task.due);
-              formattedResponse += ` (Due: ${dueDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })})`;
-            }
-            formattedResponse += "\n";
-          }
-          formattedResponse += "\n";
-        }
-
-        if (mediumPriority.length > 0) {
-          formattedResponse += "### Medium Priority\n";
-          for (const task of mediumPriority) {
-            formattedResponse += `- ${task.title}`;
-            if (task.due) {
-              const dueDate = new Date(task.due);
-              formattedResponse += ` (Due: ${dueDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })})`;
-            }
-            formattedResponse += "\n";
-          }
-          formattedResponse += "\n";
-        }
-
-        if (lowPriority.length > 0) {
-          formattedResponse += "### Low Priority\n";
-          for (const task of lowPriority) {
-            formattedResponse += `- ${task.title}`;
-            if (task.due) {
-              const dueDate = new Date(task.due);
-              formattedResponse += ` (Due: ${dueDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })})`;
-            }
-            formattedResponse += "\n";
-          }
-          formattedResponse += "\n";
-        }
-      } else {
-        formattedResponse += "No active tasks.\n";
-      }
-
-      formattedResponse += "\n## 💡 Recommendations\n\n";
-      formattedResponse +=
-        "1. Review your upcoming events and prepare any necessary materials\n";
-      formattedResponse += "2. Focus on completing high-priority tasks first\n";
-      formattedResponse +=
-        "3. Consider scheduling time for any overdue tasks\n";
-
-      return formattedResponse;
+    } else {
+      formattedResponse += "No events scheduled for the next 3 days.\n";
     }
 
-    // Return the original response if we couldn't format it
-    return response;
+    formattedResponse += "\n## ✅ Tasks\n\n";
+
+    // Format tasks - Google Tasks don't have priority field
+    if (tasksData.length > 0) {
+      for (const task of tasksData) {
+        if (task.status !== "completed") {
+          formattedResponse += `- ${task.title}`;
+          if (task.due) {
+            const dueDate = new Date(task.due);
+            formattedResponse += ` (Due: ${dueDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })})`;
+          }
+          formattedResponse += "\n";
+        }
+      }
+    } else {
+      formattedResponse += "No active tasks.\n";
+    }
+
+    formattedResponse += "\n## 💡 Recommendations\n\n";
+    formattedResponse +=
+      "1. Review your upcoming events and prepare any necessary materials\n";
+    formattedResponse += "2. Focus on completing high-priority tasks first\n";
+    formattedResponse +=
+      "3. Consider scheduling time for any overdue tasks\n";
+
+    return formattedResponse;
   }
 
   async process(userMessage: string, sessionId: string): Promise<string> {
@@ -650,7 +629,7 @@ IMPORTANT RULES:
 
       // Add timeout to graph execution
       const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Graph execution timeout")), 40000),
+        setTimeout(() => reject(new Error("Graph execution timeout")), 60000),
       );
 
       try {

@@ -171,48 +171,19 @@ export class AgentService {
             formattedResponse += "\n## ✅ Tasks\n\n";
             
             if (tasks.length > 0) {
-              const highPriority = tasks.filter((t: any) => t.priority === 'high');
-              const mediumPriority = tasks.filter((t: any) => t.priority === 'medium');
-              const lowPriority = tasks.filter((t: any) => t.priority === 'low');
-              
-              if (highPriority.length > 0) {
-                formattedResponse += "### High Priority\n";
-                for (const task of highPriority) {
-                  formattedResponse += `- ${task.title}`;
-                  if (task.dueDate) {
-                    formattedResponse += ` (Due: ${new Date(task.dueDate).toLocaleDateString()})`;
-                  }
-                  formattedResponse += "\n";
-                }
-                formattedResponse += "\n";
-              }
-              
-              if (mediumPriority.length > 0) {
-                formattedResponse += "### Medium Priority\n";
-                for (const task of mediumPriority) {
-                  formattedResponse += `- ${task.title}`;
-                  if (task.dueDate) {
-                    formattedResponse += ` (Due: ${new Date(task.dueDate).toLocaleDateString()})`;
-                  }
-                  formattedResponse += "\n";
-                }
-                formattedResponse += "\n";
-              }
-              
-              if (lowPriority.length > 0) {
-                formattedResponse += "### Low Priority\n";
-                for (const task of lowPriority) {
-                  formattedResponse += `- ${task.title}`;
-                  if (task.dueDate) {
-                    formattedResponse += ` (Due: ${new Date(task.dueDate).toLocaleDateString()})`;
-                  }
-                  formattedResponse += "\n";
+              // Google Tasks don't have priority field, so just list all tasks
+              for (const task of tasks) {
+                formattedResponse += `- ${task.title}`;
+                if (task.due) {
+                  const dueDate = new Date(task.due);
+                  formattedResponse += ` (Due: ${dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})`;
                 }
                 formattedResponse += "\n";
               }
             } else {
-              formattedResponse += "No active tasks.\n\n";
+              formattedResponse += "No active tasks.\n";
             }
+            formattedResponse += "\n";
             
             formattedResponse += "## 💡 Recommendations\n\n";
             formattedResponse += "1. Review your upcoming events and prepare any necessary materials\n";

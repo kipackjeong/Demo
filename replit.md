@@ -12,6 +12,9 @@ This is a production-ready AI agent chatbot framework built with React frontend 
 - Frontend updated to handle and display action buttons with click handlers
 - System properly logs each step of the multi-agent workflow for debugging
 - Fallback mechanism successfully retrieves actual Google Calendar/Tasks data when available
+- Fixed critical tool execution error by implementing manual tool execution instead of using LangChain's ToolNode
+- Fixed response formatting issues - removed double formatting that was causing garbled text output
+- Updated formatInitialSummary to properly handle Google Tasks (no priority field) and prevent re-formatting already formatted responses
 
 ## User Preferences
 
