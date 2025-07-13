@@ -3,7 +3,7 @@ import { AzureChatOpenAI } from "@langchain/azure-openai";
 import { HumanMessage, SystemMessage, AIMessage } from "@langchain/core/messages";
 import { BaseMessage } from "@langchain/core/messages";
 import { mockDataStore } from "./mockDataStore";
-import { mcpServer } from "./mcpServer";
+import { mcpServerNew as mcpServer } from "./mcpServerNew";
 
 // Define the state interface for the life management system
 interface LifeManagerState {
@@ -442,7 +442,9 @@ INSTRUCTIONS:
    - Use natural language
 
 RULES:
-- Use ONLY English throughout your response
+- LANGUAGE: Use ONLY English throughout your entire response
+- Do NOT include any Korean, Chinese, or other non-English text
+- All task titles, descriptions, and responses must be in English only
 - Present actual data from the tasks
 - Be clear and organized
 - Don't make up tasks or details
@@ -691,7 +693,9 @@ CRITICAL RULES:
 4. Be specific with times (e.g., "2:00 PM - 3:00 PM")
 5. If data seems unclear, present it in the clearest way possible
 6. Focus on being helpful and organized, not creative
-7. Do NOT mix languages - use English consistently throughout`;
+7. LANGUAGE RULE: Use ONLY English throughout your entire response. Do NOT include Korean, Chinese, or any other language
+8. Do NOT use any non-English characters or text
+9. All event titles, descriptions, and recommendations must be in English only`;
 
             const messages = [new SystemMessage(analysisPrompt)];
             const response = await this.azureOpenAI.invoke(messages);

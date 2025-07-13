@@ -1,5 +1,7 @@
-import { GoogleCalendarMCP } from './mcpGoogleCalendar';
-import { GoogleTasksMCP } from './mcpGoogleTasks';
+import { mcpGoogleClient } from './mcpClient';
+import { googleMCPServer } from './mcpGoogleServer';
+import { spawn, ChildProcess } from 'child_process';
+import path from 'path';
 
 export interface MCPServerConfig {
   googleCalendar: {
@@ -19,30 +21,34 @@ export interface MCPServerConfig {
 }
 
 export class MCPServer {
-  private calendarMCP: GoogleCalendarMCP;
-  private tasksMCP: GoogleTasksMCP;
   private isConfigured: boolean = false;
+  private mcpServerProcess: ChildProcess | null = null;
+  private currentUserTokens: { accessToken?: string; refreshToken?: string } | null = null;
 
   constructor(config?: MCPServerConfig) {
     if (config) {
-      this.calendarMCP = new GoogleCalendarMCP(config.googleCalendar);
-      this.tasksMCP = new GoogleTasksMCP(config.googleTasks);
-      this.isConfigured = true;
+      this.configure(config);
     } else {
-      // Initialize with environment variables if available
-      this.initializeFromEnv();
+      console.log("MCP Server wrapper created - waiting for user authentication");
     }
-  }
-  
-  private initializeFromEnv() {
-    // No longer initialize from environment variables
-    // Tokens should come from authenticated users
-    console.log("MCP Server created - waiting for user authentication");
   }
 
   configure(config: MCPServerConfig): void {
-    this.calendarMCP = new GoogleCalendarMCP(config.googleCalendar);
-    this.tasksMCP = new GoogleTasksMCP(config.googleTasks);
+    // Store tokens for the current user
+    this.currentUserTokens = {
+      accessToken: config.googleCalendar.accessToken,
+      refreshToken: config.googleCalendar.refreshToken,
+    };
+
+    // Configure the embedded MCP server with credentials
+    googleMCPServer.configure({
+      clientId: config.googleCalendar.clientId,
+      clientSecret: config.googleCalendar.clientSecret,
+      redirectUri: config.googleCalendar.redirectUri,
+      accessToken: config.googleCalendar.accessToken,
+      refreshToken: config.googleCalendar.refreshToken,
+    });
+
     this.isConfigured = true;
   }
 
