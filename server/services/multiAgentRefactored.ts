@@ -282,12 +282,86 @@ export class LifeManagerSystemRefactored {
           return { messages: [finalResponse] };
         }
 
-        // For regular messages, bind tools to the model and invoke
-        const modelWithTools = this.azureOpenAI!.bind({
-          tools: this.tools,
-        });
-        const responseWithTools = await modelWithTools.invoke(messages);
-        return { messages: [responseWithTools] };
+        // For regular messages, use the simple response we already got
+        const responseText = simpleResponse.content?.toString() || "";
+        
+        // Check if the response indicates it needs tools
+        const needsTools = responseText.toLowerCase().includes("let me") || 
+                          responseText.toLowerCase().includes("i'll") ||
+                          responseText.toLowerCase().includes("fetching") ||
+                          responseText.toLowerCase().includes("checking");
+        
+        if (!needsTools && !state.isInitialSummary) {
+          console.log("Simple conversational response - no tools needed");
+          return { messages: [simpleResponse] };
+        }
+        
+        // Otherwise, directly execute the necessary tools based on the request
+        console.log("Response needs tools, executing directly");
+        
+        // Parse the user message to determine what tools to call
+        const userMessage = state.userMessage.toLowerCase();
+        const toolResults = [];
+        
+        try {
+          if (userMessage.includes("create") && userMessage.includes("task")) {
+            // Extract task details from the message
+            const titleMatch = userMessage.match(/["']([^"']+)["']/);
+            const taskTitle = titleMatch ? titleMatch[1] : "New Task";
+            
+            // Find task list name
+            const listMatch = userMessage.match(/in the ["']([^"']+)["'] list/i);
+            const taskList = listMatch ? listMatch[1] : "My Tasks";
+            
+            // Determine priority
+            const priority = userMessage.includes("high priority") ? "high" : 
+                           userMessage.includes("low priority") ? "low" : "medium";
+            
+            console.log(`Creating task: "${taskTitle}" in list "${taskList}" with ${priority} priority`);
+            
+            // Find the create_task tool
+            const createTaskTool = this.tools.find(t => t.name === "create_task");
+            if (createTaskTool) {
+              const result = await createTaskTool.func({
+                taskListId: taskList,
+                title: taskTitle,
+                notes: "",
+                priority: priority
+              });
+              
+              toolResults.push({
+                tool: "create_task",
+                result: result
+              });
+            }
+          }
+          
+          // Format the response based on tool results
+          let responseText = "";
+          if (toolResults.length > 0 && toolResults[0].result) {
+            const taskResult = JSON.parse(toolResults[0].result);
+            if (taskResult.error) {
+              responseText = `I encountered an error creating the task: ${taskResult.error}`;
+            } else {
+              responseText = `✓ I've created the task "${taskResult.title}" in the "${taskResult.taskListTitle || 'My Tasks'}" list with ${taskResult.priority || 'medium'} priority.`;
+              if (taskResult.id) {
+                responseText += ` The task ID is ${taskResult.id}.`;
+              }
+            }
+          } else {
+            responseText = simpleResponse.content?.toString() || "";
+          }
+          
+          const finalResponse = new AIMessage(responseText);
+          return { messages: [finalResponse] };
+          
+        } catch (error) {
+          console.error("Error executing tools directly:", error);
+          const errorResponse = new AIMessage(
+            "I understand you want to create a task, but I encountered an error. Please try again."
+          );
+          return { messages: [errorResponse] };
+        }
       } catch (error) {
         console.error("Error invoking model:", error);
         const errorMessage = new AIMessage(
@@ -371,12 +445,18 @@ export class LifeManagerSystemRefactored {
       // Extract the final response from the conversation
       let finalResponse = "";
 
-      if (lastMessage instanceof AIMessage) {
+      console.log("Last message constructor name:", lastMessage?.constructor.name);
+      console.log("Last message content:", lastMessage?.content);
+
+      // Check if it's an AI message by checking constructor name or if it has content property
+      if (lastMessage && (lastMessage.constructor.name === "AIMessage" || lastMessage.content)) {
         finalResponse = lastMessage.content as string;
         console.log(
           "FINAL AGENT RESPONSE:",
-          finalResponse.substring(0, 200) + "...",
+          finalResponse ? finalResponse.substring(0, 200) + "..." : "EMPTY RESPONSE",
         );
+      } else {
+        console.log("Unable to extract response from last message");
       }
 
       // For initial summaries, ensure proper formatting
@@ -629,9 +709,9 @@ IMPORTANT RULES:
         cleanMessage,
       });
 
-      // Add timeout to graph execution
+      // Add timeout to graph execution (reduced to 30 seconds)
       const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Graph execution timeout")), 60000),
+        setTimeout(() => reject(new Error("Graph execution timeout")), 30000),
       );
 
       try {

@@ -181,6 +181,9 @@ async function streamResponse(
   storage: IStorage,
   isInitialSummary: boolean = false
 ) {
+  console.log(`Starting stream response. Response length: ${response.length}, Is initial summary: ${isInitialSummary}`);
+  console.log(`First 200 chars of response: ${response.substring(0, 200)}...`);
+  
   const words = response.split(" ");
   let currentContent = "";
 
@@ -189,17 +192,30 @@ async function streamResponse(
     currentContent += (i > 0 ? " " : "") + word;
 
     if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({
-        type: "agent_response",
-        content: word + (i < words.length - 1 ? " " : ""),
-        sessionId,
-        role: "assistant",
-      }));
+      try {
+        ws.send(JSON.stringify({
+          type: "agent_response",
+          content: word + (i < words.length - 1 ? " " : ""),
+          sessionId,
+          role: "assistant",
+        }));
+      } catch (error) {
+        console.error("Error sending word:", error);
+        break;
+      }
+    } else {
+      console.log(`WebSocket closed at word ${i} of ${words.length}. State: ${ws.readyState}`);
+      break;
     }
 
     // Add delay to simulate streaming
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, 20)); // Further reduced delay
   }
+  
+  console.log(`Finished streaming ${words.length} words`);
+  
+  // Small delay before sending done signal
+  await new Promise(resolve => setTimeout(resolve, 100));
 
   // Store the complete response
   await storage.addMessage({
