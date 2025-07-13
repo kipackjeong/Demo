@@ -12,6 +12,7 @@ export class OpenAIAssistantAgent {
   private threads: Map<string, string> = new Map(); // sessionId -> threadId
   private isInitialized: boolean = false;
   private initializationPromise: Promise<void> | null = null;
+  private threadCreationLocks: Map<string, Promise<string>> = new Map(); // sessionId -> Promise<threadId>
 
   constructor(user?: any) {
     const apiKey = process.env.OPENAI_API_KEY;
@@ -199,13 +200,32 @@ For regular requests, format responses appropriately based on what the user is a
     }
 
     try {
-      // Get or create thread for this session
+      // Get or create thread for this session with locking to prevent race conditions
       let threadId = this.threads.get(sessionId);
       if (!threadId) {
-        const thread = await this.openai.beta.threads.create();
-        threadId = thread.id;
-        this.threads.set(sessionId, threadId);
-        console.log(`Created new thread ${threadId} for session ${sessionId}`);
+        // Check if thread creation is already in progress
+        const existingCreation = this.threadCreationLocks.get(sessionId);
+        if (existingCreation) {
+          console.log(`Waiting for existing thread creation for session ${sessionId}`);
+          threadId = await existingCreation;
+        } else {
+          // Create thread creation promise
+          const threadCreationPromise = (async () => {
+            try {
+              const thread = await this.openai.beta.threads.create();
+              const newThreadId = thread.id;
+              this.threads.set(sessionId, newThreadId);
+              console.log(`Created new thread ${newThreadId} for session ${sessionId}`);
+              return newThreadId;
+            } finally {
+              // Clean up the lock after creation
+              this.threadCreationLocks.delete(sessionId);
+            }
+          })();
+          
+          this.threadCreationLocks.set(sessionId, threadCreationPromise);
+          threadId = await threadCreationPromise;
+        }
       }
 
       console.log(`Adding message to thread ${threadId}: "${userMessage}"`);
@@ -220,6 +240,7 @@ For regular requests, format responses appropriately based on what the user is a
       const run = await this.openai.beta.threads.runs.create(threadId, {
         assistant_id: this.assistant.id
       });
+      console.log(`Created run with ID: ${run.id} on thread ${threadId}`);
 
       // Wait for completion and handle tool calls
       let runStatus = await this.openai.beta.threads.runs.retrieve(threadId, run.id);
