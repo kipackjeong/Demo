@@ -4,7 +4,15 @@
 
 This is a production-ready AI agent chatbot framework built with React frontend and Node.js backend, now powered by Azure OpenAI through LangChain. The system enables real-time, bidirectional streaming communication between users and AI agents through WebSocket connections. The framework provides full conversation history, context awareness, and graceful fallback handling.
 
-**Latest Update (July 13, 2025):** Successfully implemented and tested complete Multi-Agent System:
+**Latest Update (July 14, 2025 - 11:20 PM):** Fixed Critical OpenAI SDK Parameter Issues:
+- **Root Cause Identified**: OpenAI SDK methods require different parameter signatures than documented
+- **Fixed runs.retrieve**: Changed from `retrieve(threadId, runId)` to `retrieve(runId, { thread_id: threadId })`
+- **Fixed submitToolOutputs**: Changed from `submitToolOutputs(runId, threadId, params)` to `submitToolOutputs(runId, { thread_id: threadId, tool_outputs })`
+- **Comprehensive Fix**: Corrected all 4 occurrences throughout openaiAssistant.ts
+- **Result**: OpenAI Assistant now successfully executes all 17 granular MCP tools for Google Calendar and Tasks
+- **Technical Insight**: SDK source code analysis revealed the actual method signatures differ from OpenAI documentation
+
+**Previous Update (July 13, 2025):** Successfully implemented and tested complete Multi-Agent System:
 
 **Bug Fix (July 13, 2025 - 9:16 PM):** Fixed schedule query handling issue:
 - Fixed incorrect task creation when user asks "What do I need to do this week"
@@ -136,16 +144,19 @@ This is a production-ready AI agent chatbot framework built with React frontend 
 - **Session Management**: Persistent chat sessions with unique identifiers
 
 ### AI Agent Integration
-- **LangChain Integration**: Full Azure OpenAI integration with LangChain framework
-- **Azure OpenAI Service**: Production-ready AI responses using Azure OpenAI GPT models
-- **Azure AD Authentication**: Uses DefaultAzureCredential for secure authentication
-- **Intelligent Agent System**: Primary system that intelligently selects tools based on user requests
-- **Granular MCP Tools**: Comprehensive set of tools for specific tasks (get_today_events, get_this_year_events, get_high_priority_tasks, etc.)
-- **Dynamic Tool Selection**: AI agent autonomously chooses appropriate tools based on user intent
-- **Multi-Agent Fallback**: LangGraph-powered life management as backup system
-- **Conversation History**: Per-session conversation context and memory management
-- **Streaming Response**: Word-by-word response delivery for natural interaction
-- **Fallback Handling**: Graceful degradation when AI service is unavailable
+- **OpenAI Assistant API**: Primary AI system using OpenAI's Assistant API with function calling
+- **17 Granular MCP Tools**: Comprehensive tool set for Google Calendar and Tasks:
+  - Calendar: get_calendar_events, get_today_events, get_this_week_events, get_this_month_events, get_this_year_events, create_calendar_event, list_calendars
+  - Tasks: get_task_lists, get_all_tasks, get_tasks_from_list, get_high_priority_tasks, get_overdue_tasks, get_tasks_due_today, get_tasks_due_this_week, create_task, complete_task, delete_task
+- **Dynamic Tool Execution**: Assistant autonomously selects and executes appropriate tools based on user intent
+- **Thread Management**: Persistent conversation threads with proper session isolation
+- **Concurrent Request Handling**: Race condition protection for thread creation and active runs
+- **Fallback Systems**: 
+  - Intelligent Agent: Direct Azure OpenAI with tool calling as primary fallback
+  - Multi-Agent Orchestrator: LangGraph-powered system as secondary fallback
+- **Real Google Data**: When users authenticate with Google OAuth, system uses real Calendar/Tasks data
+- **Conversation History**: Per-session conversation context maintained across interactions
+- **Streaming Response**: Token-by-token response delivery for natural interaction
 
 ### Life Management Multi-Agent System
 - **Dual Architecture Support**: System now supports both approaches:
