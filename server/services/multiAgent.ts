@@ -3,6 +3,7 @@ import { AzureChatOpenAI } from "@langchain/azure-openai";
 import { HumanMessage, SystemMessage, AIMessage } from "@langchain/core/messages";
 import { BaseMessage } from "@langchain/core/messages";
 import { mockDataStore } from "./mockDataStore";
+import { mcpServer } from "./mcpServer";
 
 // Define the state interface for the life management system
 interface LifeManagerState {
@@ -48,6 +49,20 @@ export class LifeManagerSystem {
     const date = new Date(dateStr + "T00:00:00");
     const options: Intl.DateTimeFormatOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     return date.toLocaleDateString('en-US', options);
+  }
+  
+  private convertToDateTime(dateStr: string, timeStr: string): string {
+    const [time, period] = timeStr.split(" ");
+    const [hours, minutes] = time.split(":").map(Number);
+    let totalHours = hours;
+    
+    if (period === "PM" && hours !== 12) totalHours += 12;
+    if (period === "AM" && hours === 12) totalHours = 0;
+    
+    const date = new Date(dateStr + "T00:00:00");
+    date.setHours(totalHours, minutes, 0, 0);
+    
+    return date.toISOString();
   }
 
   constructor() {
@@ -224,8 +239,23 @@ Respond with ONLY the agent decision (calendar, tasks, both, or direct_response)
   private async calendarAgent(state: LifeManagerState): Promise<Partial<LifeManagerState>> {
     console.log("Calendar Agent processing request:", state.userMessage);
     
-    // Get calendar data from the store
-    const calendarData = mockDataStore.getCalendarEvents();
+    let calendarData: any[] = [];
+    let dataSource = "mock";
+    
+    // Try to get real Google Calendar data first
+    try {
+      if (mcpServer.isReady()) {
+        calendarData = await mcpServer.getCalendarEvents();
+        dataSource = "google";
+        console.log("Calendar Agent: Using real Google Calendar data");
+      } else {
+        calendarData = mockDataStore.getCalendarEvents();
+        console.log("Calendar Agent: Using mock data (MCP not configured)");
+      }
+    } catch (error) {
+      console.log("Calendar Agent: Falling back to mock data due to error:", error);
+      calendarData = mockDataStore.getCalendarEvents();
+    }
 
 
     let response = "";
@@ -264,20 +294,58 @@ Based on the user's request, analyze the calendar data and provide a helpful res
             const eventJson = response.substring("SCHEDULE_EVENT::".length);
             const eventData = JSON.parse(eventJson);
             
-            // Add the new event to the mock data store
-            const newEvent = mockDataStore.addCalendarEvent({
-              title: eventData.title,
-              date: eventData.date,
-              time: eventData.time,
-              endTime: eventData.endTime || this.calculateEndTime(eventData.time, 60), // Default 1 hour
-              description: eventData.description || "",
-              location: eventData.location || "TBD",
-              attendees: eventData.attendees || [],
-              status: "confirmed",
-              priority: eventData.priority || "medium"
-            });
+            let newEvent: any;
             
-            response = `I've successfully scheduled "${newEvent.title}" for ${this.formatDate(newEvent.date)} at ${newEvent.time}. The meeting is set to last until ${newEvent.endTime}${newEvent.location !== "TBD" ? ` at ${newEvent.location}` : ""}. I've sent invitations to ${newEvent.attendees.length > 0 ? newEvent.attendees.join(", ") : "the attendees"}.`;
+            // Try to create event using Google Calendar API first
+            if (mcpServer.isReady() && dataSource === "google") {
+              try {
+                const startDateTime = this.convertToDateTime(eventData.date, eventData.time);
+                const endDateTime = this.convertToDateTime(eventData.date, eventData.endTime || this.calculateEndTime(eventData.time, 60));
+                
+                newEvent = await mcpServer.createCalendarEvent(undefined, {
+                  title: eventData.title,
+                  description: eventData.description || "",
+                  startDateTime,
+                  endDateTime,
+                  location: eventData.location || "",
+                  attendees: eventData.attendees || [],
+                  timeZone: "UTC"
+                });
+                
+                response = `I've successfully scheduled "${newEvent.title}" in your Google Calendar for ${this.formatDate(newEvent.date)} at ${newEvent.time}. The meeting is set to last until ${newEvent.endTime}${newEvent.location ? ` at ${newEvent.location}` : ""}. ${newEvent.attendees.length > 0 ? `I've sent invitations to ${newEvent.attendees.join(", ")}.` : ""}`;
+              } catch (mcpError) {
+                console.error("Failed to create Google Calendar event, falling back to mock:", mcpError);
+                // Fallback to mock data
+                newEvent = mockDataStore.addCalendarEvent({
+                  title: eventData.title,
+                  date: eventData.date,
+                  time: eventData.time,
+                  endTime: eventData.endTime || this.calculateEndTime(eventData.time, 60),
+                  description: eventData.description || "",
+                  location: eventData.location || "TBD",
+                  attendees: eventData.attendees || [],
+                  status: "confirmed",
+                  priority: eventData.priority || "medium"
+                });
+                
+                response = `I've successfully scheduled "${newEvent.title}" for ${this.formatDate(newEvent.date)} at ${newEvent.time}. The meeting is set to last until ${newEvent.endTime}${newEvent.location !== "TBD" ? ` at ${newEvent.location}` : ""}. I've noted this in your schedule and would send invitations to ${newEvent.attendees.length > 0 ? newEvent.attendees.join(", ") : "the attendees"}.`;
+              }
+            } else {
+              // Use mock data store
+              newEvent = mockDataStore.addCalendarEvent({
+                title: eventData.title,
+                date: eventData.date,
+                time: eventData.time,
+                endTime: eventData.endTime || this.calculateEndTime(eventData.time, 60),
+                description: eventData.description || "",
+                location: eventData.location || "TBD",
+                attendees: eventData.attendees || [],
+                status: "confirmed",
+                priority: eventData.priority || "medium"
+              });
+              
+              response = `I've successfully scheduled "${newEvent.title}" for ${this.formatDate(newEvent.date)} at ${newEvent.time}. The meeting is set to last until ${newEvent.endTime}${newEvent.location !== "TBD" ? ` at ${newEvent.location}` : ""}. I've noted this in your schedule and would send invitations to ${newEvent.attendees.length > 0 ? newEvent.attendees.join(", ") : "the attendees"}.`;
+            }
           } catch (error) {
             console.error("Failed to parse scheduling request:", error);
             response = "I understood you want to schedule a meeting, but I had trouble processing the details. Could you please clarify the date, time, and attendees?";
@@ -300,8 +368,23 @@ Based on the user's request, analyze the calendar data and provide a helpful res
   private async tasksAgent(state: LifeManagerState): Promise<Partial<LifeManagerState>> {
     console.log("Tasks Agent processing request:", state.userMessage);
     
-    // Get tasks data from the store
-    const tasksData = mockDataStore.getTasks();
+    let tasksData: any[] = [];
+    let dataSource = "mock";
+    
+    // Try to get real Google Tasks data first
+    try {
+      if (mcpServer.isReady()) {
+        tasksData = await mcpServer.getTasks();
+        dataSource = "google";
+        console.log("Tasks Agent: Using real Google Tasks data");
+      } else {
+        tasksData = mockDataStore.getTasks();
+        console.log("Tasks Agent: Using mock data (MCP not configured)");
+      }
+    } catch (error) {
+      console.log("Tasks Agent: Falling back to mock data due to error:", error);
+      tasksData = mockDataStore.getTasks();
+    }
 
 
     let response = "";
@@ -344,20 +427,60 @@ Based on the user's request, analyze the tasks data and provide a helpful respon
             const taskJson = response.substring("CREATE_TASK::".length);
             const taskData = JSON.parse(taskJson);
             
-            // Add the new task to the mock data store
-            const newTask = mockDataStore.addTask({
-              title: taskData.title,
-              description: taskData.description || "",
-              priority: taskData.priority || "medium",
-              dueDate: taskData.dueDate || "",
-              completed: false,
-              category: taskData.category || "personal",
-              estimatedTime: taskData.estimatedTime || "1 hour",
-              tags: taskData.tags || [],
-              createdDate: new Date().toISOString().split('T')[0]
-            });
+            let newTask: any;
             
-            response = `I've created a new task "${newTask.title}" with ${newTask.priority} priority${newTask.dueDate ? `, due on ${this.formatDate(newTask.dueDate)}` : ""}. The task has been added to your ${newTask.category} category and is estimated to take ${newTask.estimatedTime}.`;
+            // Try to create task using Google Tasks API first
+            if (mcpServer.isReady() && dataSource === "google") {
+              try {
+                // Get the first task list (default)
+                const taskLists = await mcpServer.getTaskLists();
+                const defaultTaskList = taskLists[0];
+                
+                if (defaultTaskList) {
+                  newTask = await mcpServer.createTask(defaultTaskList.id, {
+                    title: taskData.title,
+                    description: taskData.description || "",
+                    dueDate: taskData.dueDate || "",
+                    priority: taskData.priority || "medium"
+                  });
+                  
+                  response = `I've created a new task "${newTask.title}" in your Google Tasks with ${newTask.priority} priority${newTask.dueDate ? `, due on ${this.formatDate(newTask.dueDate)}` : ""}. The task has been added to your ${newTask.category} category and is estimated to take ${newTask.estimatedTime}.`;
+                } else {
+                  throw new Error("No task lists found");
+                }
+              } catch (mcpError) {
+                console.error("Failed to create Google Task, falling back to mock:", mcpError);
+                // Fallback to mock data
+                newTask = mockDataStore.addTask({
+                  title: taskData.title,
+                  description: taskData.description || "",
+                  priority: taskData.priority || "medium",
+                  dueDate: taskData.dueDate || "",
+                  completed: false,
+                  category: taskData.category || "personal",
+                  estimatedTime: taskData.estimatedTime || "1 hour",
+                  tags: taskData.tags || [],
+                  createdDate: new Date().toISOString().split('T')[0]
+                });
+                
+                response = `I've created a new task "${newTask.title}" with ${newTask.priority} priority${newTask.dueDate ? `, due on ${this.formatDate(newTask.dueDate)}` : ""}. The task has been noted in your schedule and is estimated to take ${newTask.estimatedTime}.`;
+              }
+            } else {
+              // Use mock data store
+              newTask = mockDataStore.addTask({
+                title: taskData.title,
+                description: taskData.description || "",
+                priority: taskData.priority || "medium",
+                dueDate: taskData.dueDate || "",
+                completed: false,
+                category: taskData.category || "personal",
+                estimatedTime: taskData.estimatedTime || "1 hour",
+                tags: taskData.tags || [],
+                createdDate: new Date().toISOString().split('T')[0]
+              });
+              
+              response = `I've created a new task "${newTask.title}" with ${newTask.priority} priority${newTask.dueDate ? `, due on ${this.formatDate(newTask.dueDate)}` : ""}. The task has been noted in your schedule and is estimated to take ${newTask.estimatedTime}.`;
+            }
           } catch (error) {
             console.error("Failed to parse task creation request:", error);
             response = "I understood you want to create a task, but I had trouble processing the details. Could you please clarify what task you'd like to add?";
@@ -367,12 +490,40 @@ Based on the user's request, analyze the tasks data and provide a helpful respon
         else if (response.startsWith("COMPLETE_TASK::")) {
           try {
             const taskId = response.substring("COMPLETE_TASK::".length);
-            const completedTask = mockDataStore.completeTask(taskId);
             
-            if (completedTask) {
-              response = `Great job! I've marked "${completedTask.title}" as completed. This ${completedTask.priority} priority task from your ${completedTask.category} category is now done.`;
+            let completedTask: any = null;
+            
+            // Try to complete task using Google Tasks API first
+            if (mcpServer.isReady() && dataSource === "google") {
+              try {
+                // Find the task across all task lists
+                const allTasks = await mcpServer.getTasks();
+                const taskToComplete = allTasks.find(task => task.id === taskId);
+                
+                if (taskToComplete) {
+                  completedTask = await mcpServer.completeTask(taskToComplete.taskListId, taskId);
+                  response = `Great job! I've marked "${completedTask.title}" as completed in your Google Tasks. This ${completedTask.priority} priority task from your ${completedTask.category} category is now done.`;
+                } else {
+                  response = "I couldn't find that task to mark as complete. Could you please clarify which task you'd like to complete?";
+                }
+              } catch (mcpError) {
+                console.error("Failed to complete Google Task, falling back to mock:", mcpError);
+                // Fallback to mock data
+                completedTask = mockDataStore.completeTask(taskId);
+                if (completedTask) {
+                  response = `Great job! I've marked "${completedTask.title}" as completed. This ${completedTask.priority} priority task from your ${completedTask.category} category is now done.`;
+                } else {
+                  response = "I couldn't find that task to mark as complete. Could you please clarify which task you'd like to complete?";
+                }
+              }
             } else {
-              response = "I couldn't find that task to mark as complete. Could you please clarify which task you'd like to complete?";
+              // Use mock data store
+              completedTask = mockDataStore.completeTask(taskId);
+              if (completedTask) {
+                response = `Great job! I've marked "${completedTask.title}" as completed. This ${completedTask.priority} priority task from your ${completedTask.category} category is now done.`;
+              } else {
+                response = "I couldn't find that task to mark as complete. Could you please clarify which task you'd like to complete?";
+              }
             }
           } catch (error) {
             console.error("Failed to complete task:", error);

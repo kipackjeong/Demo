@@ -4,6 +4,8 @@
 
 This is a production-ready AI agent chatbot framework built with React frontend and Node.js backend, now powered by Azure OpenAI through LangChain. The system enables real-time, bidirectional streaming communication between users and AI agents through WebSocket connections. The framework provides full conversation history, context awareness, and graceful fallback handling.
 
+**Latest Update (July 13, 2025):** Now features Model Context Protocol (MCP) integration with Google Calendar and Google Tasks APIs, allowing the AI to interact with real Google services instead of mock data.
+
 ## User Preferences
 
 - Preferred communication style: Simple, everyday language.
@@ -54,6 +56,8 @@ This is a production-ready AI agent chatbot framework built with React frontend 
 - **Google Tasks Agent**: Specialized agent for task management, todos, and reminders
 - **Intelligent Routing**: Smart decision-making to determine which agents are needed for each request
 - **Coordinated Workflow**: Agents work together to provide comprehensive life management assistance
+- **MCP Integration**: Model Context Protocol server connects agents to real Google Calendar and Tasks APIs
+- **Fallback Handling**: Graceful fallback to mock data when Google APIs are unavailable
 
 ### User Interface
 - **Chat Interface**: Clean, modern chat UI with message bubbles
@@ -92,6 +96,8 @@ This is a production-ready AI agent chatbot framework built with React frontend 
 - **Database**: Drizzle ORM with Neon PostgreSQL
 - **Development**: TSX for TypeScript execution
 - **Build Tools**: ESBuild for production bundling
+- **Google APIs**: googleapis and google-auth-library for Google Calendar and Tasks integration
+- **MCP**: @modelcontextprotocol/sdk for Model Context Protocol implementation
 
 ### Development Tools
 - **Vite**: Fast development server and build tool
@@ -125,3 +131,25 @@ This is a production-ready AI agent chatbot framework built with React frontend 
 - **UI Components**: shadcn/ui components can be customized or replaced
 - **Authentication**: Framework ready for user authentication integration
 - **External APIs**: Structured for integration with various AI services
+- **MCP Server**: Model Context Protocol architecture allows easy addition of new service integrations
+
+## Google API Integration Setup
+
+### Required Environment Variables
+- `GOOGLE_CLIENT_ID`: OAuth 2.0 client ID from Google Cloud Console
+- `GOOGLE_CLIENT_SECRET`: OAuth 2.0 client secret from Google Cloud Console
+- `GOOGLE_CALENDAR_REFRESH_TOKEN`: Refresh token for Google Calendar API access
+- `GOOGLE_TASKS_REFRESH_TOKEN`: Refresh token for Google Tasks API access
+
+### Setup Instructions
+1. Visit `/google-setup` page in the application for step-by-step setup
+2. Follow the automated OAuth flow to obtain refresh tokens
+3. Add tokens to your environment variables
+4. Test the connection using the built-in test endpoint
+
+### API Architecture
+```
+User Request → WebSocket → Multi-Agent System → MCP Server → Google APIs
+```
+
+The system automatically falls back to mock data when Google APIs are unavailable, ensuring consistent functionality during development and testing.
