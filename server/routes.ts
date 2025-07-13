@@ -25,7 +25,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Configure MCP server with available credentials
-      const redirectUri = `${req.protocol}://${req.get('host')}/api/google/callback`;
+      // Force HTTPS for Replit deployments
+      const redirectUri = `https://${req.get('host')}/api/google/callback`;
       
       mcpServer.configure({
         googleCalendar: {
