@@ -97,7 +97,10 @@ class TasksAgent {
         
         // If user asks for "all tasks", don't specify taskListId to get all tasks
         const isAllTasksRequest = request.toLowerCase().includes('all');
+        console.log(`✅ Tasks Agent: Request: "${request}"`);
+        console.log(`✅ Tasks Agent: Is all tasks request: ${isAllTasksRequest}`);
         const params = isAllTasksRequest ? {} : { taskListId: '@default' };
+        console.log(`✅ Tasks Agent: Params being passed:`, params);
         
         const result = await tasksTool.func(params);
         
