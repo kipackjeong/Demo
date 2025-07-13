@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { WebSocketServer } from "ws";
 import { storage } from "./storage";
 import { setupWebSocketServer } from "./services/websocket";
-import { mcpServer } from "./services/mcpServer";
+import { mcpUnifiedServer as mcpServer } from "./services/mcpUnified";
 import { setupAuth, requireAuth } from "./auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -182,24 +182,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const redirectUri = `https://${req.get('host')}/api/google/callback`;
       
       mcpServer.configure({
-        googleCalendar: {
-          clientId,
-          clientSecret,
-          redirectUri,
-          refreshToken: process.env.GOOGLE_CALENDAR_REFRESH_TOKEN,
-          accessToken: process.env.GOOGLE_CALENDAR_ACCESS_TOKEN,
-        },
-        googleTasks: {
-          clientId,
-          clientSecret,
-          redirectUri,
-          refreshToken: process.env.GOOGLE_TASKS_REFRESH_TOKEN,
-          accessToken: process.env.GOOGLE_TASKS_ACCESS_TOKEN,
-        }
+        clientId,
+        clientSecret,
+        redirectUri,
+        refreshToken: process.env.GOOGLE_CALENDAR_REFRESH_TOKEN || process.env.GOOGLE_TASKS_REFRESH_TOKEN,
+        accessToken: process.env.GOOGLE_CALENDAR_ACCESS_TOKEN || process.env.GOOGLE_TASKS_ACCESS_TOKEN,
       });
       
       const calendarAuthUrl = mcpServer.getCalendarAuthUrl();
-      const tasksAuthUrl = mcpServer.getTasksAuthUrl();
+      const tasksAuthUrl = mcpServer.getCalendarAuthUrl(); // Same URL for both since we request both scopes
       
       res.json({
         message: "Google API setup URLs generated",
@@ -234,12 +225,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Determine which service this is for based on state parameter
       const service = state === 'tasks' ? 'tasks' : 'calendar';
       
-      let tokens;
-      if (service === 'calendar') {
-        tokens = await mcpServer.handleCalendarAuthCallback(code as string);
-      } else {
-        tokens = await mcpServer.handleTasksAuthCallback(code as string);
-      }
+      // Handle callback for both services with unified handler
+      const tokens = await mcpServer.handleAuthCallback(code as string);
       
       res.json({
         message: `${service} authentication successful`,
@@ -263,8 +250,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "MCP server not configured" });
       }
       
-      const calendars = await mcpServer.listCalendars();
-      const taskLists = await mcpServer.getTaskLists();
+      const calendars = await mcpServer.listCalendarsDirectly();
+      const taskLists = await mcpServer.getTaskListsDirectly();
       
       res.json({
         message: "Google API connection successful",

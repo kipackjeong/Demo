@@ -3,7 +3,7 @@ import { AzureChatOpenAI } from "@langchain/azure-openai";
 import { HumanMessage, SystemMessage, AIMessage } from "@langchain/core/messages";
 import { BaseMessage } from "@langchain/core/messages";
 import { mockDataStore } from "./mockDataStore";
-import { mcpServerNew as mcpServer } from "./mcpServerNew";
+import { mcpUnifiedServer as mcpServer } from "./mcpUnified";
 
 // Define the state interface for the life management system
 interface LifeManagerState {
@@ -257,7 +257,7 @@ Respond with ONLY the agent decision (calendar, tasks, both, or direct_response)
     // Try to get real Google Calendar data first
     try {
       if (mcpServer.isReady()) {
-        calendarData = await mcpServer.getCalendarEvents();
+        calendarData = await mcpServer.getCalendarEventsDirectly();
         dataSource = "google";
         console.log("Calendar Agent: Using real Google Calendar data");
       } else {
@@ -324,7 +324,7 @@ RULES:
                 const startDateTime = this.convertToDateTime(eventData.date, eventData.time);
                 const endDateTime = this.convertToDateTime(eventData.date, eventData.endTime || this.calculateEndTime(eventData.time, 60));
                 
-                newEvent = await mcpServer.createCalendarEvent(undefined, {
+                newEvent = await mcpServer.createCalendarEventDirectly(undefined, {
                   title: eventData.title,
                   description: eventData.description || "",
                   startDateTime,
@@ -396,7 +396,7 @@ RULES:
     // Try to get real Google Tasks data first
     try {
       if (mcpServer.isReady()) {
-        tasksData = await mcpServer.getTasks();
+        tasksData = await mcpServer.getTasksDirectly();
         dataSource = "google";
         console.log("Tasks Agent: Using real Google Tasks data");
       } else {
@@ -466,11 +466,11 @@ RULES:
             if (mcpServer.isReady() && dataSource === "google") {
               try {
                 // Get the first task list (default)
-                const taskLists = await mcpServer.getTaskLists();
+                const taskLists = await mcpServer.getTaskListsDirectly();
                 const defaultTaskList = taskLists[0];
                 
                 if (defaultTaskList) {
-                  newTask = await mcpServer.createTask(defaultTaskList.id, {
+                  newTask = await mcpServer.createTaskDirectly(defaultTaskList.id, {
                     title: taskData.title,
                     description: taskData.description || "",
                     dueDate: taskData.dueDate || "",
@@ -530,11 +530,11 @@ RULES:
             if (mcpServer.isReady() && dataSource === "google") {
               try {
                 // Find the task across all task lists
-                const allTasks = await mcpServer.getTasks();
+                const allTasks = await mcpServer.getTasksDirectly();
                 const taskToComplete = allTasks.find(task => task.id === taskId);
                 
                 if (taskToComplete) {
-                  completedTask = await mcpServer.completeTask(taskToComplete.taskListId, taskId);
+                  completedTask = await mcpServer.completeTaskDirectly(taskToComplete.taskListId, taskId);
                   response = `Great job! I've marked "${completedTask.title}" as completed in your Google Tasks. This ${completedTask.priority} priority task from your ${completedTask.category} category is now done.`;
                 } else {
                   response = "I couldn't find that task to mark as complete. Could you please clarify which task you'd like to complete?";
