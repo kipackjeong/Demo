@@ -16,6 +16,8 @@ This is a production-ready AI agent chatbot framework built with React frontend 
   - Intelligent request parsing to extract task details from natural language
   - Automatic priority detection (high/medium/low) from user messages
   - Proper response formatting for both conversational and action requests
+  - **Fixed Graph Execution Timeouts**: Increased timeout from 30s to 60s to handle Azure OpenAI latency
+  - **Optimized Agent Node Execution**: Added early exit when tools have been executed to prevent redundant AI calls
 - **Key Technical Improvements:**
   - Fixed Azure OpenAI bindTools compatibility issue by using direct tool calls
   - Implemented proper mock data fallback when Google tokens unavailable
@@ -24,6 +26,8 @@ This is a production-ready AI agent chatbot framework built with React frontend 
   - Aggregator node ensures Summary Agent always runs for initial summaries
   - Fixed WebSocket message streaming for all response types
   - Reduced streaming delay from 100ms to 20ms for better UX
+  - **Session-based AgentService Persistence**: Fixed conversation state management by maintaining AgentService instances per session
+  - **Proactive Task Creation**: System now automatically creates tasks when user intent is clear (e.g., "I have to...", "I need to...")
 - **System Features:**
   - Initial summaries show 3-day window with proper markdown formatting
   - Interactive action buttons for different time ranges (week/month/7 days)

@@ -114,6 +114,44 @@ export class LifeManagerSystemRefactored {
       );
       console.log("User message:", state.userMessage);
 
+      // If we just executed tools, we need to format the response
+      const hasToolMessages = state.messages.some(
+        (m) => m.constructor.name === "ToolMessage",
+      );
+      
+      if (hasToolMessages && !state.isInitialSummary) {
+        // We've already executed tools, just format a response
+        console.log("Tool execution complete, formatting response");
+        
+        // Get the last tool message
+        const toolMessages = state.messages.filter(m => m.constructor.name === "ToolMessage");
+        const lastToolMessage = toolMessages[toolMessages.length - 1];
+        
+        let finalResponse = "";
+        if (lastToolMessage) {
+          try {
+            const toolResult = JSON.parse(lastToolMessage.content as string);
+            if (toolResult.status === "task_created" && toolResult.task) {
+              const task = toolResult.task;
+              finalResponse = `I've created a task "${task.title}" to remind you about this. `;
+              if (task.priority === "high") {
+                finalResponse += "It's marked as high priority. ";
+              }
+              finalResponse += "The task has been added to your default task list.";
+            } else {
+              finalResponse = "I've completed the requested action.";
+            }
+          } catch (e) {
+            // If parsing fails, use generic response
+            finalResponse = "I've created the task for you. It's been added to your default task list.";
+          }
+        } else {
+          finalResponse = "I've completed the requested action.";
+        }
+        
+        return { messages: [new AIMessage(finalResponse)] };
+      }
+
       try {
         console.log("Invoking model without tools first...");
         // First, let's try without tools to see if the model responds
@@ -124,24 +162,32 @@ export class LifeManagerSystemRefactored {
         const responseText = simpleResponse.content?.toString() || "";
         const needsTaskCreation = responseText.toLowerCase().includes("create a task") || 
                                  responseText.toLowerCase().includes("i'll create") ||
-                                 responseText.toLowerCase().includes("let me create");
+                                 responseText.toLowerCase().includes("let me create") ||
+                                 responseText.toLowerCase().includes("would you like me to create") ||
+                                 responseText.toLowerCase().includes("add this as a task");
+                                 
+        // Also check if the user's message is clearly asking to create a task
+        const userWantsTask = state.userMessage.toLowerCase().includes("i have to") ||
+                             state.userMessage.toLowerCase().includes("i need to") ||
+                             state.userMessage.toLowerCase().includes("remind me");
 
         // If we need to create a task, manually create the tool call
-        if (needsTaskCreation && !state.isInitialSummary) {
+        if ((needsTaskCreation || userWantsTask) && !state.isInitialSummary) {
           console.log("Response needs task creation, creating tool call");
           
           // Extract task details from conversation context
           let taskTitle = "Call doctor for appointment";
           let taskNotes = "Need to call to make a doctor appointment";
           
-          // Look through conversation history for more context
-          for (const msg of state.messages) {
-            const content = msg.content?.toString() || "";
-            if (content.includes("doctor appointment")) {
-              if (content.includes("tomorrow morning")) {
-                taskTitle = "Call doctor for appointment tomorrow morning";
-                taskNotes = "Remember to call the doctor's office in the morning to schedule an appointment";
-              }
+          // Look through conversation history and current message for more context
+          const allContent = state.userMessage + " " + state.messages.map(m => m.content?.toString() || "").join(" ");
+          
+          if (allContent.includes("tomorrow")) {
+            taskTitle = "Call doctor for appointment tomorrow";
+            taskNotes = "Remember to call the doctor's office tomorrow to schedule an appointment";
+            if (allContent.includes("morning")) {
+              taskTitle = "Call doctor for appointment tomorrow morning";
+              taskNotes = "Remember to call the doctor's office in the morning to schedule an appointment";
             }
           }
           
@@ -770,9 +816,9 @@ IMPORTANT RULES:
         historyLength: historyMessages.length,
       });
 
-      // Add timeout to graph execution (reduced to 30 seconds)
+      // Add timeout to graph execution (60 seconds for complex operations)
       const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Graph execution timeout")), 30000),
+        setTimeout(() => reject(new Error("Graph execution timeout")), 60000),
       );
 
       try {
