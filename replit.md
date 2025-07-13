@@ -4,7 +4,7 @@
 
 This is a production-ready AI agent chatbot framework built with React frontend and Node.js backend, now powered by Azure OpenAI through LangChain. The system enables real-time, bidirectional streaming communication between users and AI agents through WebSocket connections. The framework provides full conversation history, context awareness, and graceful fallback handling.
 
-**Latest Update (July 13, 2025):** Now features Model Context Protocol (MCP) integration with Google Calendar and Google Tasks APIs, allowing the AI to interact with real Google services instead of mock data. Implemented traditional email/password authentication with Google OAuth login option. Google OAuth now requests Calendar and Tasks permissions directly during login, storing tokens per user for secure multi-user access. Fixed fundamental authentication issue - system now works with just Google access token when refresh token is unavailable. Improved AI response quality with clearer prompts, better organization, and consistent English-only output formatting.
+**Latest Update (July 13, 2025):** Refactored MCP implementation to follow official Model Context Protocol standards. Agents now use proper tool calling through LangChain adapters instead of explicit method calls. Created unified MCP server (mcpUnified.ts) consolidating Calendar and Tasks functionality. Implemented MCPToolAdapter for proper LangChain tool integration. Enhanced response formatting with structured markdown output for initial summaries. System maintains fallback to mock data when Google APIs unavailable.
 
 ## User Preferences
 
@@ -54,13 +54,14 @@ This is a production-ready AI agent chatbot framework built with React frontend 
 - **Fallback Handling**: Graceful degradation when AI service is unavailable
 
 ### Life Management Multi-Agent System
-- **Orchestration Agent**: Boss agent that analyzes user requests and routes to appropriate sub-agents
-- **Google Calendar Agent**: Specialized agent for calendar management, scheduling, and appointments
-- **Google Tasks Agent**: Specialized agent for task management, todos, and reminders
-- **Intelligent Routing**: Smart decision-making to determine which agents are needed for each request
-- **Coordinated Workflow**: Agents work together to provide comprehensive life management assistance
-- **MCP Integration**: Model Context Protocol server connects agents to real Google Calendar and Tasks APIs
-- **Fallback Handling**: Graceful fallback to mock data when Google APIs are unavailable
+- **LangGraph-based Architecture**: Uses StateGraph for agent orchestration with proper tool calling
+- **MCP Tool Integration**: Agents receive tools from MCP server through LangChain adapters
+- **Tool-based Interaction**: Agents use tools naturally through LangChain's tool calling mechanism
+- **Unified MCP Server**: Single server (mcpUnified.ts) handles both Calendar and Tasks APIs
+- **MCPToolAdapter**: Converts MCP capabilities into LangChain-compatible DynamicStructuredTools
+- **Automatic Tool Selection**: Agents autonomously choose appropriate tools based on user requests
+- **Structured Response Formatting**: Enhanced markdown formatting for weekly summaries
+- **Fallback Handling**: Graceful degradation to mock data when Google APIs unavailable
 
 ### User Interface
 - **Authentication Flow**: Traditional login/signup page with email/password and Google OAuth options

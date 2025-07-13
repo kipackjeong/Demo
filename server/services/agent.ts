@@ -2,19 +2,19 @@ import { AzureChatOpenAI } from "@langchain/azure-openai";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { DefaultAzureCredential } from "@azure/identity";
 import { testDirectAzureOpenAI } from "./directAzureTest.js";
-import { LifeManagerSystem } from "./multiAgent.js";
+import { LifeManagerSystemRefactored } from "./multiAgentRefactored.js";
 
 export class AgentService {
   private azureOpenAI: AzureChatOpenAI | null = null;
   private conversationHistory: Map<string, Array<{ role: string; content: string }>> = new Map();
-  private lifeManagerSystem: LifeManagerSystem;
+  private lifeManagerSystem: LifeManagerSystemRefactored;
 
   constructor(user?: any) {
     this.initializeAzureOpenAI();
     // Test direct connection
     this.testDirectConnection();
     // Initialize life manager system with user context
-    this.lifeManagerSystem = new LifeManagerSystem(user);
+    this.lifeManagerSystem = new LifeManagerSystemRefactored(user);
   }
 
   private async testDirectConnection() {
