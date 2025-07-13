@@ -4,7 +4,22 @@
 
 This is a production-ready AI agent chatbot framework built with React frontend and Node.js backend, now powered by Azure OpenAI through LangChain. The system enables real-time, bidirectional streaming communication between users and AI agents through WebSocket connections. The framework provides full conversation history, context awareness, and graceful fallback handling.
 
-**Latest Update (July 14, 2025 - 11:24 PM):** Fixed Duplicate Message Streaming Issue:
+**Latest Update (July 14, 2025 - 11:33 PM):** Enhanced Schedule Formatting and Duplicate Prevention:
+- **Consistent Schedule Template**: Created standardized formatting for all schedule summaries
+  - Calendar events grouped by date with "Today", "Tomorrow" or full date headers
+  - Tasks organized by priority levels (High/Medium/Low) with color-coded emoji indicators
+  - Each item shows: Title | Time/Due Date | Location/List Name
+  - Summary section shows total events and pending tasks
+- **Improved Duplicate Detection**: Enhanced message deduplication using content-based hashing
+  - Changed from timestamp-based to content hash-based duplicate detection
+  - Added 5-second retention window to catch late duplicate messages
+  - Uses first 20 chars of base64 content hash for efficient comparison
+- **OpenAI Assistant Instructions**: Updated with precise formatting template
+  - Strict formatting rules for consistent output structure
+  - Clear date formatting guidelines (relative dates for today/tomorrow)
+  - Pipe-separated fields with consistent emoji usage
+
+**Previous Update (July 14, 2025 - 11:24 PM):** Fixed Duplicate Message Streaming Issue:
 - **Problem Identified**: WebSocket messages were being processed twice, causing duplicated words in output
 - **Root Cause**: Client sending duplicate messages with slightly different timestamps
 - **Solution Implemented**: Added message deduplication mechanism using unique message keys
