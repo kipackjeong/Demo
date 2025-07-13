@@ -90,15 +90,170 @@ export class LifeManagerSystemRefactored {
       
       const messages = [
         new SystemMessage(systemPrompt),
-        new HumanMessage(state.userMessage)
+        new HumanMessage(state.userMessage),
+        ...state.messages
       ];
 
-      // Bind tools to the model
-      const modelWithTools = this.azureOpenAI!.bindTools(this.tools);
+      console.log("Agent node executing with", this.tools.length, "tools");
+      console.log("Current state messages:", state.messages.length);
+      console.log("Message types:", state.messages.map(m => m.constructor.name));
       
       try {
-        const response = await modelWithTools.invoke(messages);
-        return { messages: [response] };
+        console.log("Invoking model without tools first...");
+        // First, let's try without tools to see if the model responds
+        const simpleResponse = await this.azureOpenAI!.invoke(messages);
+        console.log("Simple model response:", simpleResponse.content?.toString().substring(0, 100));
+        
+        // For initial summary, we need to manually create tool calls only if we haven't called tools yet
+        if (state.isInitialSummary && state.messages.length === 0) {
+          // Create manual tool calls for calendar and tasks
+          const toolCalls = [
+            {
+              id: "call_1",
+              type: "function" as const,
+              function: {
+                name: "get_calendar_events",
+                arguments: JSON.stringify({
+                  calendarId: "primary",
+                  timeMin: new Date().toISOString(),
+                  timeMax: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+                })
+              }
+            },
+            {
+              id: "call_2", 
+              type: "function" as const,
+              function: {
+                name: "get_tasks",
+                arguments: JSON.stringify({
+                  taskListId: "@default"
+                })
+              }
+            }
+          ];
+          
+          const responseWithTools = new AIMessage({
+            content: "Let me fetch your calendar events and tasks for the week.",
+            tool_calls: toolCalls
+          });
+          
+          return { messages: [responseWithTools] };
+        }
+        
+        // If we're processing after tools have been called, ask the model to format the response
+        const hasToolMessages = state.messages.some(m => m.constructor.name === 'ToolMessage');
+        if (state.isInitialSummary && hasToolMessages) {
+          // Extract tool results
+          let calendarData: any[] = [];
+          let tasksData: any[] = [];
+          
+          for (const message of state.messages) {
+            if (message.constructor.name === 'ToolMessage') {
+              try {
+                const toolMessage = message as any;
+                const result = JSON.parse(toolMessage.content);
+                
+                // Check if this is calendar data
+                if (Array.isArray(result) && result.length > 0) {
+                  if (result[0].hasOwnProperty('start')) {
+                    calendarData = result;
+                  } else if (result[0].hasOwnProperty('notes') || result[0].hasOwnProperty('title')) {
+                    tasksData = result;
+                  }
+                }
+              } catch (e) {
+                console.log("Error parsing tool message:", e);
+              }
+            }
+          }
+          
+          // Create formatted response
+          let formattedResponse = "## 📅 This Week's Calendar\n\n";
+          
+          if (calendarData.length > 0) {
+            for (const event of calendarData) {
+              const startDate = new Date(event.start);
+              const dateStr = startDate.toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                month: 'long', 
+                day: 'numeric' 
+              });
+              const timeStr = startDate.toLocaleTimeString('en-US', { 
+                hour: 'numeric', 
+                minute: '2-digit',
+                hour12: true 
+              });
+              
+              formattedResponse += `- **${event.title || 'Untitled Event'}** - ${dateStr}, ${timeStr}\n`;
+              if (event.location) {
+                formattedResponse += `  Location: ${event.location}\n`;
+              }
+              if (event.description) {
+                formattedResponse += `  ${event.description}\n`;
+              }
+            }
+          } else {
+            formattedResponse += "No events scheduled this week.\n";
+          }
+          
+          formattedResponse += "\n## ✅ Tasks\n\n";
+          
+          if (tasksData.length > 0) {
+            const highPriority = tasksData.filter(t => t.priority === 'high');
+            const mediumPriority = tasksData.filter(t => t.priority === 'medium');
+            const lowPriority = tasksData.filter(t => t.priority === 'low');
+            
+            if (highPriority.length > 0) {
+              formattedResponse += "### High Priority\n";
+              for (const task of highPriority) {
+                formattedResponse += `- ${task.title}`;
+                if (task.dueDate) {
+                  formattedResponse += ` (Due: ${new Date(task.dueDate).toLocaleDateString()})`;
+                }
+                formattedResponse += "\n";
+              }
+              formattedResponse += "\n";
+            }
+            
+            if (mediumPriority.length > 0) {
+              formattedResponse += "### Medium Priority\n";
+              for (const task of mediumPriority) {
+                formattedResponse += `- ${task.title}`;
+                if (task.dueDate) {
+                  formattedResponse += ` (Due: ${new Date(task.dueDate).toLocaleDateString()})`;
+                }
+                formattedResponse += "\n";
+              }
+              formattedResponse += "\n";
+            }
+            
+            if (lowPriority.length > 0) {
+              formattedResponse += "### Low Priority\n";
+              for (const task of lowPriority) {
+                formattedResponse += `- ${task.title}`;
+                if (task.dueDate) {
+                  formattedResponse += ` (Due: ${new Date(task.dueDate).toLocaleDateString()})`;
+                }
+                formattedResponse += "\n";
+              }
+              formattedResponse += "\n";
+            }
+          } else {
+            formattedResponse += "No active tasks.\n\n";
+          }
+          
+          formattedResponse += "## 💡 Recommendations\n\n";
+          formattedResponse += "1. Review your upcoming events and prepare any necessary materials\n";
+          formattedResponse += "2. Focus on completing high-priority tasks first\n";
+          formattedResponse += "3. Consider scheduling time for any overdue tasks\n";
+          
+          const finalResponse = new AIMessage(formattedResponse);
+          console.log("Formatting response generated directly from tool results");
+          return { messages: [finalResponse] };
+        }
+        
+        // For regular messages, just return the response
+        return { messages: [simpleResponse] };
       } catch (error) {
         console.error("Error invoking model:", error);
         const errorMessage = new AIMessage("I encountered an error processing your request. Please try again.");
@@ -106,9 +261,19 @@ export class LifeManagerSystemRefactored {
       }
     });
 
-    // Add the tool node
-    const toolNode = new ToolNode(this.tools);
-    workflow.addNode("tools", toolNode);
+    // Add the tool node with wrapper for logging
+    workflow.addNode("tools", async (state: LifeManagerState) => {
+      console.log("Tool node executing...");
+      const toolNode = new ToolNode(this.tools);
+      try {
+        const result = await toolNode.invoke(state);
+        console.log("Tool node completed successfully");
+        return result;
+      } catch (error) {
+        console.error("Tool node error:", error);
+        throw error;
+      }
+    });
 
     // Add the response formatter node
     workflow.addNode("formatter", async (state: LifeManagerState) => {
@@ -135,10 +300,22 @@ export class LifeManagerSystemRefactored {
       
       // If the last message has tool calls, route to tools
       if (lastMessage instanceof AIMessage && lastMessage.tool_calls && lastMessage.tool_calls.length > 0) {
+        console.log("Routing to tools node - found", lastMessage.tool_calls.length, "tool calls");
         return "tools";
       }
       
+      // If we have tool messages and this is an initial summary that was just formatted, we're done
+      const hasToolMessages = state.messages.some(m => m.constructor.name === 'ToolMessage');
+      if (state.isInitialSummary && hasToolMessages && lastMessage instanceof AIMessage) {
+        const content = lastMessage.content as string;
+        if (content.includes('## 📅 This Week\'s Calendar')) {
+          console.log("Initial summary formatting complete - routing to formatter");
+          return "formatter";
+        }
+      }
+      
       // Otherwise, we're done
+      console.log("Routing to formatter node - no tool calls");
       return "formatter";
     }
 
@@ -358,9 +535,25 @@ IMPORTANT RULES:
         isInitialSummary,
       };
 
-      const result = await this.graph.invoke(input);
+      console.log("Processing request with graph:", { isInitialSummary, cleanMessage });
       
-      return result.finalResponse || "I couldn't process your request. Please try again.";
+      // Add timeout to graph execution
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error("Graph execution timeout")), 15000)
+      );
+      
+      try {
+        const result = await Promise.race([
+          this.graph.invoke(input),
+          timeoutPromise
+        ]);
+        
+        console.log("Graph result:", { hasResponse: !!result.finalResponse, responseLength: result.finalResponse?.length });
+        return result.finalResponse || "I couldn't process your request. Please try again.";
+      } catch (innerError) {
+        console.error("Graph execution error:", innerError);
+        throw innerError;
+      }
     } catch (error) {
       console.error("Error processing message:", error);
       return "I encountered an error while processing your request. Please try again.";

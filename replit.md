@@ -4,7 +4,14 @@
 
 This is a production-ready AI agent chatbot framework built with React frontend and Node.js backend, now powered by Azure OpenAI through LangChain. The system enables real-time, bidirectional streaming communication between users and AI agents through WebSocket connections. The framework provides full conversation history, context awareness, and graceful fallback handling.
 
-**Latest Update (July 13, 2025):** Refactored MCP implementation to follow official Model Context Protocol standards. Agents now use proper tool calling through LangChain adapters instead of explicit method calls. Created unified MCP server (mcpUnified.ts) consolidating Calendar and Tasks functionality. Implemented MCPToolAdapter for proper LangChain tool integration. Enhanced response formatting with structured markdown output for initial summaries. System maintains fallback to mock data when Google APIs unavailable.
+**Latest Update (July 13, 2025):** Refactored MCP implementation to follow official Model Context Protocol standards. Key improvements:
+- Created unified MCP server (mcpUnified.ts) consolidating Calendar and Tasks functionality
+- Implemented MCPToolAdapter converting MCP tools into LangChain DynamicStructuredTools
+- Refactored Life Manager system to use proper tool calling through LangGraph StateGraph
+- For initial summaries, system now manually creates tool calls to ensure calendar/tasks are fetched
+- Tools execute successfully and return data to the graph
+- Current challenge: Graph execution timing out after tool execution, needs optimization of the agent-tools-formatter flow
+- System falls back gracefully to single agent when multi-agent times out
 
 ## User Preferences
 

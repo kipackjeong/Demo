@@ -101,8 +101,127 @@ export class AgentService {
     if (this.lifeManagerSystem) {
       try {
         console.log("Using Life Manager system for response generation");
-        const response = await this.lifeManagerSystem.generateResponse(userMessage, sessionId);
+        const response = await this.lifeManagerSystem.process(userMessage, sessionId);
         console.log(`Life Manager system response: "${response.substring(0, 100)}..."`);
+        
+        // If we got a timeout error for initial summary, use a direct approach
+        const isInitialSummary = userMessage.includes('[INITIAL_SUMMARY]');
+        if (isInitialSummary && response.includes("I encountered an error")) {
+          console.log("Life Manager timeout - using direct approach for initial summary");
+          
+          try {
+            // Get tools and call them directly
+            const tools = this.lifeManagerSystem.mcpToolAdapter.getTools();
+            console.log("Available tools:", tools.map(t => t.name));
+            
+            const calendarTool = tools.find(t => t.name === 'get_calendar_events');
+            const tasksTool = tools.find(t => t.name === 'get_tasks');
+            
+            let calendarEvents = [];
+            let tasks = [];
+            
+            if (calendarTool) {
+              console.log("Calling calendar tool...");
+              const calendarResult = await calendarTool.func({});
+              console.log("Calendar result:", calendarResult);
+              calendarEvents = JSON.parse(calendarResult);
+            }
+            
+            if (tasksTool) {
+              console.log("Calling tasks tool...");
+              const tasksResult = await tasksTool.func({});
+              console.log("Tasks result:", tasksResult);
+              tasks = JSON.parse(tasksResult);
+            }
+            
+            // Format the response
+            let formattedResponse = "## 📅 This Week's Calendar\n\n";
+            
+            if (calendarEvents.length > 0) {
+              for (const event of calendarEvents) {
+                const startDate = new Date(event.start);
+                const dateStr = startDate.toLocaleDateString('en-US', { 
+                  weekday: 'long', 
+                  month: 'long', 
+                  day: 'numeric' 
+                });
+                const timeStr = startDate.toLocaleTimeString('en-US', { 
+                  hour: 'numeric', 
+                  minute: '2-digit',
+                  hour12: true 
+                });
+                
+                formattedResponse += `- **${event.title || 'Untitled Event'}** - ${dateStr}, ${timeStr}\n`;
+                if (event.location) {
+                  formattedResponse += `  Location: ${event.location}\n`;
+                }
+                if (event.description) {
+                  formattedResponse += `  ${event.description}\n`;
+                }
+                formattedResponse += "\n";
+              }
+            } else {
+              formattedResponse += "No events scheduled this week.\n";
+            }
+            
+            formattedResponse += "\n## ✅ Tasks\n\n";
+            
+            if (tasks.length > 0) {
+              const highPriority = tasks.filter((t: any) => t.priority === 'high');
+              const mediumPriority = tasks.filter((t: any) => t.priority === 'medium');
+              const lowPriority = tasks.filter((t: any) => t.priority === 'low');
+              
+              if (highPriority.length > 0) {
+                formattedResponse += "### High Priority\n";
+                for (const task of highPriority) {
+                  formattedResponse += `- ${task.title}`;
+                  if (task.dueDate) {
+                    formattedResponse += ` (Due: ${new Date(task.dueDate).toLocaleDateString()})`;
+                  }
+                  formattedResponse += "\n";
+                }
+                formattedResponse += "\n";
+              }
+              
+              if (mediumPriority.length > 0) {
+                formattedResponse += "### Medium Priority\n";
+                for (const task of mediumPriority) {
+                  formattedResponse += `- ${task.title}`;
+                  if (task.dueDate) {
+                    formattedResponse += ` (Due: ${new Date(task.dueDate).toLocaleDateString()})`;
+                  }
+                  formattedResponse += "\n";
+                }
+                formattedResponse += "\n";
+              }
+              
+              if (lowPriority.length > 0) {
+                formattedResponse += "### Low Priority\n";
+                for (const task of lowPriority) {
+                  formattedResponse += `- ${task.title}`;
+                  if (task.dueDate) {
+                    formattedResponse += ` (Due: ${new Date(task.dueDate).toLocaleDateString()})`;
+                  }
+                  formattedResponse += "\n";
+                }
+                formattedResponse += "\n";
+              }
+            } else {
+              formattedResponse += "No active tasks.\n\n";
+            }
+            
+            formattedResponse += "## 💡 Recommendations\n\n";
+            formattedResponse += "1. Review your upcoming events and prepare any necessary materials\n";
+            formattedResponse += "2. Focus on completing high-priority tasks first\n";
+            formattedResponse += "3. Consider scheduling time for any overdue tasks\n";
+            
+            return formattedResponse;
+          } catch (directError) {
+            console.error("Direct approach also failed:", directError);
+            return response; // Return the original error response
+          }
+        }
+        
         return response;
       } catch (error) {
         console.error("Life Manager system error, falling back to single agent:", error);
