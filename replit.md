@@ -4,7 +4,18 @@
 
 This is a production-ready AI agent chatbot framework built with React frontend and Node.js backend, now powered by Azure OpenAI through LangChain. The system enables real-time, bidirectional streaming communication between users and AI agents through WebSocket connections. The framework provides full conversation history, context awareness, and graceful fallback handling.
 
-**Latest Update (July 14, 2025 - 11:33 PM):** Enhanced Schedule Formatting and Duplicate Prevention:
+**Latest Update (July 14, 2025 - 11:51 PM):** Removed Deprecated Code and Simplified Architecture:
+- **Deprecated Files Removed**: Cleaned up 12 unused files including old MCP implementations and multi-agent systems
+  - Removed: mcpGoogleCalendar.ts, mcpClient.ts, mcpGoogleServer.ts, mcpServer.ts, mcpServerNew.ts, mcpServerRunner.ts
+  - Removed: directAzureTest.ts, intelligentAgent.ts, multiAgent.ts, multiAgentRefactored.ts, multiAgentOrchestrator.ts
+- **Simplified Agent Service**: Streamlined to use only OpenAI Assistant with Azure OpenAI fallback
+  - Removed complex fallback chains and deprecated service references
+  - Cleaner code with better maintainability
+- **Environment Variables**: Created .env configuration for all secrets and API keys
+  - Added dotenv support with .env.example template
+  - Enhanced security with proper .gitignore configuration
+
+**Previous Update (July 14, 2025 - 11:33 PM):** Enhanced Schedule Formatting and Duplicate Prevention:
 - **Consistent Schedule Template**: Created standardized formatting for all schedule summaries
   - Calendar events grouped by date with "Today", "Tomorrow" or full date headers
   - Tasks organized by priority levels (High/Medium/Low) with color-coded emoji indicators
@@ -176,29 +187,19 @@ This is a production-ready AI agent chatbot framework built with React frontend 
 - **Dynamic Tool Execution**: Assistant autonomously selects and executes appropriate tools based on user intent
 - **Thread Management**: Persistent conversation threads with proper session isolation
 - **Concurrent Request Handling**: Race condition protection for thread creation and active runs
-- **Fallback Systems**: 
-  - Intelligent Agent: Direct Azure OpenAI with tool calling as primary fallback
-  - Multi-Agent Orchestrator: LangGraph-powered system as secondary fallback
+- **Fallback System**: Azure OpenAI for simple chat when OpenAI Assistant is unavailable
 - **Real Google Data**: When users authenticate with Google OAuth, system uses real Calendar/Tasks data
 - **Conversation History**: Per-session conversation context maintained across interactions
 - **Streaming Response**: Token-by-token response delivery for natural interaction
 
-### Life Management Multi-Agent System
-- **Dual Architecture Support**: System now supports both approaches:
-  - **Original System (multiAgentRefactored.ts)**: Single agent with tool calling and state machine
-  - **New Multi-Agent System (multiAgentOrchestrator.ts)**: True orchestrator pattern with specialized sub-agents
-- **Multi-Agent Orchestration Pattern**:
-  - **Orchestrator Agent**: Routes requests to appropriate specialized agents based on analysis
-  - **Calendar Agent**: Dedicated to calendar operations with filtered calendar tools
-  - **Tasks Agent**: Focused on task management with task-specific tools
-  - **Summary Agent**: Specializes in creating formatted summaries from data
-  - **Parallel Execution**: Independent agents run concurrently for better performance
-- **MCP Tool Integration**: Both systems use MCPToolAdapter for tool conversion
+### MCP Tool Integration
 - **Unified MCP Server**: Single server (mcpUnified.ts) handles both Calendar and Tasks APIs
 - **MCPToolAdapter**: Converts MCP capabilities into LangChain-compatible DynamicStructuredTools
-- **Automatic Tool Selection**: Agents autonomously choose appropriate tools based on user requests
-- **Structured Response Formatting**: Enhanced markdown formatting for summaries
-- **Fallback Handling**: Graceful degradation with direct tool calls when main system times out
+- **17 Granular Tools**: Specialized tools for every calendar and task operation
+- **Automatic Tool Selection**: OpenAI Assistant autonomously chooses appropriate tools based on user requests
+- **Structured Response Formatting**: ScheduleFormatter service ensures consistent markdown formatting
+- **Real-time Data**: Direct integration with Google Calendar and Tasks APIs when user is authenticated
+- **Mock Data Fallback**: Development mode with realistic test data when Google APIs unavailable
 
 ### User Interface
 - **Authentication Flow**: Traditional login/signup page with email/password and Google OAuth options

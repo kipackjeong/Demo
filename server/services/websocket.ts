@@ -2,7 +2,6 @@ import { WebSocketServer, WebSocket } from "ws";
 import type { IStorage } from "../storage";
 import { AgentService } from "./agent";
 import type { WebSocketMessage } from "@shared/schema";
-import { mcpServer } from "./mcpServer";
 import { mcpUnifiedServer } from "./mcpUnified";
 import { parse } from "cookie";
 import session from "express-session";
@@ -125,7 +124,6 @@ async function handleWebSocketMessage(
       if (!agentService) {
         // Configure MCP server and create new agent service with user context
         if (user?.googleAccessToken) {
-          mcpServer.configureWithUserTokens(user);
           mcpUnifiedServer.configureWithUserTokens(user);
           agentService = new AgentService(user);
           console.log("Configured services with Google tokens for user:", user.email);
