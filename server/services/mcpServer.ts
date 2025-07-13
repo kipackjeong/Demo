@@ -48,24 +48,26 @@ export class MCPServer {
 
   // Configure MCP server with user's Google tokens
   configureWithUserTokens(user: any) {
-    if (user.googleAccessToken && user.googleRefreshToken) {
+    // Use tokens if we have at least an access token
+    if (user.googleAccessToken) {
       const config: MCPServerConfig = {
         googleCalendar: {
           clientId: process.env.GOOGLE_CLIENT_ID!,
           clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
           redirectUri: "/api/auth/google/callback",
           accessToken: user.googleAccessToken,
-          refreshToken: user.googleRefreshToken,
+          refreshToken: user.googleRefreshToken, // May be undefined, that's OK
         },
         googleTasks: {
           clientId: process.env.GOOGLE_CLIENT_ID!,
           clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
           redirectUri: "/api/auth/google/callback",
           accessToken: user.googleAccessToken,
-          refreshToken: user.googleRefreshToken,
+          refreshToken: user.googleRefreshToken, // May be undefined, that's OK
         },
       };
       this.configure(config);
+      console.log(`MCP Server configured for user ${user.email} with access token. Refresh token: ${user.googleRefreshToken ? 'Present' : 'Missing'}`);
     }
   }
 

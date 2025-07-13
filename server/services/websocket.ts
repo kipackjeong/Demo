@@ -99,16 +99,18 @@ async function handleWebSocketMessage(
       user = await storage.getUser(userId);
       
       // Configure MCP server and create new agent service with user context
-      if (user?.googleAccessToken && user?.googleRefreshToken) {
+      if (user?.googleAccessToken) {
         mcpServer.configureWithUserTokens(user);
         agentService = new AgentService(user);
         console.log("Configured services with Google tokens for user:", user.email);
+        console.log("Token status - Access: Present, Refresh:", user.googleRefreshToken ? "Present" : "Missing (will use access token only)");
       } else {
         console.log("User tokens status:", {
           email: user?.email,
           hasAccessToken: !!user?.googleAccessToken,
           hasRefreshToken: !!user?.googleRefreshToken
         });
+        console.log("No Google access token - will use mock data");
       }
     }
     

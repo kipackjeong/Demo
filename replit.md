@@ -4,7 +4,7 @@
 
 This is a production-ready AI agent chatbot framework built with React frontend and Node.js backend, now powered by Azure OpenAI through LangChain. The system enables real-time, bidirectional streaming communication between users and AI agents through WebSocket connections. The framework provides full conversation history, context awareness, and graceful fallback handling.
 
-**Latest Update (July 13, 2025):** Now features Model Context Protocol (MCP) integration with Google Calendar and Google Tasks APIs, allowing the AI to interact with real Google services instead of mock data. Implemented traditional email/password authentication with Google OAuth login option. Google OAuth now requests Calendar and Tasks permissions directly during login, storing tokens per user for secure multi-user access.
+**Latest Update (July 13, 2025):** Now features Model Context Protocol (MCP) integration with Google Calendar and Google Tasks APIs, allowing the AI to interact with real Google services instead of mock data. Implemented traditional email/password authentication with Google OAuth login option. Google OAuth now requests Calendar and Tasks permissions directly during login, storing tokens per user for secure multi-user access. Fixed fundamental authentication issue - system now works with just Google access token when refresh token is unavailable.
 
 ## User Preferences
 
@@ -153,6 +153,7 @@ This is a production-ready AI agent chatbot framework built with React frontend 
 3. Google tokens are stored per user in the database
 4. When users send messages, their Google data is automatically accessed
 5. MCP server dynamically configures with each user's tokens
+6. System works with just access token if refresh token is unavailable
 
 ### API Architecture
 ```

@@ -37,7 +37,8 @@ export class GoogleTasksMCP {
       config.redirectUri
     );
 
-    if (config.refreshToken) {
+    // Set credentials if we have either token
+    if (config.refreshToken || config.accessToken) {
       this.oauth2Client.setCredentials({
         refresh_token: config.refreshToken,
         access_token: config.accessToken,
@@ -49,6 +50,13 @@ export class GoogleTasksMCP {
   }
 
   async refreshAccessToken(): Promise<void> {
+    // Skip refresh if we don't have a refresh token
+    const currentCredentials = this.oauth2Client.credentials;
+    if (!currentCredentials.refresh_token) {
+      console.log('No refresh token available, using existing access token');
+      return;
+    }
+    
     try {
       const { credentials } = await this.oauth2Client.refreshAccessToken();
       this.oauth2Client.setCredentials(credentials);
