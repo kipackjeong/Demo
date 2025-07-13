@@ -3,18 +3,22 @@ import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { DefaultAzureCredential } from "@azure/identity";
 import { testDirectAzureOpenAI } from "./directAzureTest.js";
 import { LifeManagerSystemRefactored } from "./multiAgentRefactored.js";
+import { MultiAgentOrchestrator } from "./multiAgentOrchestrator.js";
 
 export class AgentService {
   private azureOpenAI: AzureChatOpenAI | null = null;
   private conversationHistory: Map<string, Array<{ role: string; content: string }>> = new Map();
   private lifeManagerSystem: LifeManagerSystemRefactored;
+  private multiAgentOrchestrator: MultiAgentOrchestrator;
+  private useMultiAgent: boolean = true; // Flag to switch between systems
 
   constructor(user?: any) {
     this.initializeAzureOpenAI();
     // Test direct connection
     this.testDirectConnection();
-    // Initialize life manager system with user context
+    // Initialize both systems with user context
     this.lifeManagerSystem = new LifeManagerSystemRefactored(user);
+    this.multiAgentOrchestrator = new MultiAgentOrchestrator(user);
   }
 
   private async testDirectConnection() {
@@ -97,7 +101,23 @@ export class AgentService {
   async generateResponse(userMessage: string, sessionId: string = "default"): Promise<string> {
     console.log(`Generating response for session ${sessionId}: "${userMessage}"`);
     
-    // Use life manager system if available
+    // Check if this is an initial summary request
+    const isInitialSummary = userMessage.includes('[INITIAL_SUMMARY]');
+    
+    // Try using Multi-Agent Orchestrator for initial summaries
+    if (this.useMultiAgent && isInitialSummary && this.multiAgentOrchestrator) {
+      try {
+        console.log("Using Multi-Agent Orchestrator for initial summary");
+        const response = await this.multiAgentOrchestrator.process(userMessage, sessionId);
+        console.log(`Multi-Agent Orchestrator response: "${response.substring(0, 100)}..."`);
+        return response;
+      } catch (error) {
+        console.error("Multi-Agent Orchestrator failed:", error);
+        // Fall back to Life Manager system
+      }
+    }
+    
+    // Use life manager system as fallback or for non-initial summaries
     if (this.lifeManagerSystem) {
       try {
         console.log("Using Life Manager system for response generation");
@@ -105,7 +125,6 @@ export class AgentService {
         console.log(`Life Manager system response: "${response.substring(0, 100)}..."`);
         
         // If we got a timeout error for initial summary, use a direct approach
-        const isInitialSummary = userMessage.includes('[INITIAL_SUMMARY]');
         if (isInitialSummary && response.includes("I encountered an error")) {
           console.log("Life Manager timeout - using direct approach for initial summary");
           
@@ -291,6 +310,8 @@ export class AgentService {
         activeSessions: this.conversationHistory.size,
       },
       lifeManager: this.lifeManagerSystem?.getSystemStatus() || null,
+      multiAgentOrchestrator: this.multiAgentOrchestrator?.getSystemStatus() || "not initialized",
+      activeSystem: this.useMultiAgent ? "multi-agent" : "life-manager",
     };
   }
 }

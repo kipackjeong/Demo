@@ -15,6 +15,13 @@ This is a production-ready AI agent chatbot framework built with React frontend 
 - Fixed critical tool execution error by implementing manual tool execution instead of using LangChain's ToolNode
 - Fixed response formatting issues - removed double formatting that was causing garbled text output
 - Updated formatInitialSummary to properly handle Google Tasks (no priority field) and prevent re-formatting already formatted responses
+- **NEW: Implemented true Multi-Agent Orchestration Pattern (multiAgentOrchestrator.ts)**
+  - Orchestrator Agent: Analyzes user requests and routes to specialized sub-agents
+  - Calendar Agent: Handles calendar-specific queries with calendar tools only
+  - Tasks Agent: Manages task-related requests with task tools only
+  - Summary Agent: Creates formatted summaries from collected data
+  - Parallel execution of independent agents for better performance
+  - Proper separation of concerns following multi-agent best practices
 
 ## User Preferences
 
@@ -65,14 +72,21 @@ This is a production-ready AI agent chatbot framework built with React frontend 
 - **Fallback Handling**: Graceful degradation when AI service is unavailable
 
 ### Life Management Multi-Agent System
-- **LangGraph-based Architecture**: Uses StateGraph for agent orchestration with proper tool calling
-- **MCP Tool Integration**: Agents receive tools from MCP server through LangChain adapters
-- **Tool-based Interaction**: Agents use tools naturally through LangChain's tool calling mechanism
+- **Dual Architecture Support**: System now supports both approaches:
+  - **Original System (multiAgentRefactored.ts)**: Single agent with tool calling and state machine
+  - **New Multi-Agent System (multiAgentOrchestrator.ts)**: True orchestrator pattern with specialized sub-agents
+- **Multi-Agent Orchestration Pattern**:
+  - **Orchestrator Agent**: Routes requests to appropriate specialized agents based on analysis
+  - **Calendar Agent**: Dedicated to calendar operations with filtered calendar tools
+  - **Tasks Agent**: Focused on task management with task-specific tools
+  - **Summary Agent**: Specializes in creating formatted summaries from data
+  - **Parallel Execution**: Independent agents run concurrently for better performance
+- **MCP Tool Integration**: Both systems use MCPToolAdapter for tool conversion
 - **Unified MCP Server**: Single server (mcpUnified.ts) handles both Calendar and Tasks APIs
 - **MCPToolAdapter**: Converts MCP capabilities into LangChain-compatible DynamicStructuredTools
 - **Automatic Tool Selection**: Agents autonomously choose appropriate tools based on user requests
-- **Structured Response Formatting**: Enhanced markdown formatting for weekly summaries
-- **Fallback Handling**: Graceful degradation to mock data when Google APIs unavailable
+- **Structured Response Formatting**: Enhanced markdown formatting for summaries
+- **Fallback Handling**: Graceful degradation with direct tool calls when main system times out
 
 ### User Interface
 - **Authentication Flow**: Traditional login/signup page with email/password and Google OAuth options
