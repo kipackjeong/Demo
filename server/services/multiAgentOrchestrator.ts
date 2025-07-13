@@ -114,9 +114,27 @@ class TasksAgent {
 
 class SummaryAgent {
   private model: AzureChatOpenAI;
+  private userLanguage: string = 'en';
 
   constructor(model: AzureChatOpenAI) {
     this.model = model;
+  }
+
+  // Simple language detection based on character patterns
+  private detectLanguage(text: string): string {
+    // Korean characters
+    if (/[\u3131-\uD79D]/.test(text)) return 'ko';
+    // Japanese characters (Hiragana, Katakana, Kanji)
+    if (/[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(text)) return 'ja';
+    // Chinese characters (simplified/traditional)
+    if (/[\u4E00-\u9FFF]/.test(text)) return 'zh';
+    // Default to English
+    return 'en';
+  }
+
+  setUserLanguage(userMessage: string) {
+    this.userLanguage = this.detectLanguage(userMessage);
+    console.log(`📝 Summary Agent: Detected language: ${this.userLanguage}`);
   }
 
   async process(calendarData: any[], tasksData: any[], timeRange: string = "3 days"): Promise<string> {
@@ -124,8 +142,19 @@ class SummaryAgent {
     console.log(`Processing ${calendarData.length} calendar events and ${tasksData.length} tasks`);
     
     try {
-      // Instead of using the model, let's format the summary directly in Korean
-      let formattedResponse = `## 📅 앞으로 ${timeRange === '3 days' ? '3일간의' : timeRange} 일정\n\n`;
+      // Format the summary based on detected language
+      let formattedResponse = '';
+      
+      // Language-specific headers and content
+      if (this.userLanguage === 'ko') {
+        formattedResponse = `## 📅 앞으로 ${timeRange === '3 days' ? '3일간의' : timeRange} 일정\n\n`;
+      } else if (this.userLanguage === 'ja') {
+        formattedResponse = `## 📅 今後${timeRange === '3 days' ? '3日間' : timeRange}の予定\n\n`;
+      } else if (this.userLanguage === 'zh') {
+        formattedResponse = `## 📅 未来${timeRange === '3 days' ? '3天' : timeRange}的日程\n\n`;
+      } else {
+        formattedResponse = `## 📅 Next ${timeRange}\n\n`;
+      }
       
       // Format calendar events
       if (calendarData.length > 0) {
@@ -140,13 +169,17 @@ class SummaryAgent {
           
           // Check if date is valid
           let dateTimeStr = '';
+          const locale = this.userLanguage === 'ko' ? 'ko-KR' : 
+                        this.userLanguage === 'ja' ? 'ja-JP' :
+                        this.userLanguage === 'zh' ? 'zh-CN' : 'en-US';
+                        
           if (!isNaN(startDate.getTime())) {
-            const dateStr = startDate.toLocaleDateString('ko-KR', { 
+            const dateStr = startDate.toLocaleDateString(locale, { 
               weekday: 'long', 
               month: 'long', 
               day: 'numeric' 
             });
-            const timeStr = startDate.toLocaleTimeString('ko-KR', { 
+            const timeStr = startDate.toLocaleTimeString(locale, { 
               hour: 'numeric', 
               minute: '2-digit',
               hour12: true 
@@ -156,12 +189,21 @@ class SummaryAgent {
             // Handle separate date and time fields from mock data
             dateTimeStr = `${event.date}, ${event.time}`;
           } else {
-            dateTimeStr = '날짜 미정';
+            dateTimeStr = this.userLanguage === 'ko' ? '날짜 미정' :
+                         this.userLanguage === 'ja' ? '日付未定' :
+                         this.userLanguage === 'zh' ? '日期待定' : 'Date TBD';
           }
           
-          formattedResponse += `- **${event.title || event.summary || '제목 없음'}** - ${dateTimeStr}\n`;
+          const untitledText = this.userLanguage === 'ko' ? '제목 없음' :
+                              this.userLanguage === 'ja' ? 'タイトルなし' :
+                              this.userLanguage === 'zh' ? '无标题' : 'Untitled Event';
+          
+          formattedResponse += `- **${event.title || event.summary || untitledText}** - ${dateTimeStr}\n`;
           if (event.location) {
-            formattedResponse += `  장소: ${event.location}\n`;
+            const locationLabel = this.userLanguage === 'ko' ? '장소' :
+                                 this.userLanguage === 'ja' ? '場所' :
+                                 this.userLanguage === 'zh' ? '地点' : 'Location';
+            formattedResponse += `  ${locationLabel}: ${event.location}\n`;
           }
           if (event.description) {
             formattedResponse += `  ${event.description}\n`;
@@ -169,10 +211,19 @@ class SummaryAgent {
           formattedResponse += "\n";
         }
       } else {
-        formattedResponse += `앞으로 ${timeRange === '3 days' ? '3일간' : timeRange} 예정된 일정이 없습니다.\n`;
+        const noEventsText = this.userLanguage === 'ko' ? `앞으로 ${timeRange === '3 days' ? '3일간' : timeRange} 예정된 일정이 없습니다.` :
+                           this.userLanguage === 'ja' ? `今後${timeRange === '3 days' ? '3日間' : timeRange}の予定はありません。` :
+                           this.userLanguage === 'zh' ? `未来${timeRange === '3 days' ? '3天' : timeRange}没有安排的日程。` :
+                           `No events scheduled for the next ${timeRange}.`;
+        formattedResponse += noEventsText + '\n';
       }
       
-      formattedResponse += "\n## ✅ 할 일 목록\n\n";
+      // Tasks header based on language
+      const tasksHeader = this.userLanguage === 'ko' ? "\n## ✅ 할 일 목록\n\n" :
+                         this.userLanguage === 'ja' ? "\n## ✅ タスクリスト\n\n" :
+                         this.userLanguage === 'zh' ? "\n## ✅ 任务清单\n\n" :
+                         "\n## ✅ Tasks\n\n";
+      formattedResponse += tasksHeader;
       
       // Format tasks
       if (tasksData.length > 0) {
@@ -183,21 +234,57 @@ class SummaryAgent {
             formattedResponse += `- ${task.title}`;
             if (task.due) {
               const dueDate = new Date(task.due);
-              formattedResponse += ` (마감일: ${dueDate.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })}일)`;
+              const locale = this.userLanguage === 'ko' ? 'ko-KR' : 
+                           this.userLanguage === 'ja' ? 'ja-JP' :
+                           this.userLanguage === 'zh' ? 'zh-CN' : 'en-US';
+              
+              const dueLabel = this.userLanguage === 'ko' ? '마감일' :
+                              this.userLanguage === 'ja' ? '期限' :
+                              this.userLanguage === 'zh' ? '截止日期' : 'Due';
+              
+              formattedResponse += ` (${dueLabel}: ${dueDate.toLocaleDateString(locale, { month: 'short', day: 'numeric' })})`;
             }
             formattedResponse += "\n";
           }
         } else {
-          formattedResponse += "진행 중인 할 일이 없습니다.\n";
+          const noTasksText = this.userLanguage === 'ko' ? "진행 중인 할 일이 없습니다." :
+                             this.userLanguage === 'ja' ? "進行中のタスクはありません。" :
+                             this.userLanguage === 'zh' ? "没有进行中的任务。" :
+                             "No active tasks.";
+          formattedResponse += noTasksText + "\n";
         }
       } else {
-        formattedResponse += "진행 중인 할 일이 없습니다.\n";
+        const noTasksText = this.userLanguage === 'ko' ? "진행 중인 할 일이 없습니다." :
+                           this.userLanguage === 'ja' ? "進行中のタスクはありません。" :
+                           this.userLanguage === 'zh' ? "没有进行中的任务。" :
+                           "No active tasks.";
+        formattedResponse += noTasksText + "\n";
       }
       
-      formattedResponse += "\n## 💡 추천사항\n\n";
-      formattedResponse += "1. 예정된 일정을 확인하고 필요한 준비를 하세요\n";
-      formattedResponse += "2. 우선순위가 높은 작업부터 완료하세요\n";
-      formattedResponse += "3. 마감일이 지난 작업들을 처리할 시간을 계획하세요\n";
+      // Recommendations header and content based on language
+      const recommendationsHeader = this.userLanguage === 'ko' ? "\n## 💡 추천사항\n\n" :
+                                   this.userLanguage === 'ja' ? "\n## 💡 おすすめ\n\n" :
+                                   this.userLanguage === 'zh' ? "\n## 💡 建议\n\n" :
+                                   "\n## 💡 Recommendations\n\n";
+      formattedResponse += recommendationsHeader;
+      
+      if (this.userLanguage === 'ko') {
+        formattedResponse += "1. 예정된 일정을 확인하고 필요한 준비를 하세요\n";
+        formattedResponse += "2. 우선순위가 높은 작업부터 완료하세요\n";
+        formattedResponse += "3. 마감일이 지난 작업들을 처리할 시간을 계획하세요\n";
+      } else if (this.userLanguage === 'ja') {
+        formattedResponse += "1. 予定されているイベントを確認し、必要な準備をしましょう\n";
+        formattedResponse += "2. 優先度の高いタスクから完了させましょう\n";
+        formattedResponse += "3. 期限切れのタスクを処理する時間を計画しましょう\n";
+      } else if (this.userLanguage === 'zh') {
+        formattedResponse += "1. 查看即将到来的活动并准备必要的材料\n";
+        formattedResponse += "2. 优先完成高优先级的任务\n";
+        formattedResponse += "3. 为逾期任务安排处理时间\n";
+      } else {
+        formattedResponse += "1. Review your upcoming events and prepare any necessary materials\n";
+        formattedResponse += "2. Focus on completing high-priority tasks first\n";
+        formattedResponse += "3. Consider scheduling time for any overdue tasks\n";
+      }
       
       console.log("📝 Summary Agent: Summary created successfully");
       return formattedResponse;
@@ -406,6 +493,9 @@ Respond in JSON format:
         const calendarData = results.calendar || [];
         const tasksData = results.tasks || [];
         
+        // Set user language before processing
+        this.summaryAgent.setUserLanguage(state.userRequest);
+        
         results.summary = await this.summaryAgent.process(
           calendarData,
           tasksData,
@@ -427,6 +517,9 @@ Respond in JSON format:
       if (state.isInitialSummary && this.summaryAgent) {
         const calendarData = results.calendar || [];
         const tasksData = results.tasks || [];
+        
+        // Set user language before processing
+        this.summaryAgent.setUserLanguage(state.userRequest);
         
         const summary = await this.summaryAgent.process(
           calendarData,

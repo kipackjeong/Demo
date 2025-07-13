@@ -20,10 +20,11 @@ This is a production-ready AI agent chatbot framework built with React frontend 
 - **Simplified Architecture**: Cleaned up over 200 lines of redundant hardcoded logic
 - **Better User Experience**: AI can now handle complex requests requiring multiple tools automatically
 
-**Localization Update (July 13, 2025 - 9:27 PM):** Summary Agent Korean Output:
-- **Korean Language Support**: Updated Summary Agent to output all responses in Korean
-- **Localized Date/Time**: Using Korean locale for date and time formatting
-- **Translated Headers**: All section headers and recommendations now in Korean
+**Dynamic Language Detection (July 13, 2025 - 9:31 PM):** Summary Agent Multi-Language Support:
+- **Automatic Language Detection**: Summary Agent now detects language from user's input
+- **Multi-Language Support**: Supports Korean, Japanese, Chinese, and English
+- **Dynamic Formatting**: All headers, dates, and recommendations adapt to detected language
+- **Smart Detection**: Uses character pattern matching to identify language
 - **Fixed Tool Binding**: Corrected Azure OpenAI tool binding to use proper invoke parameters
 - **Completed Multi-Agent Architecture (multiAgentOrchestrator.ts)**
   - Orchestrator Agent: Routes requests based on intelligent analysis
