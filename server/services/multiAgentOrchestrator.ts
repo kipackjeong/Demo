@@ -147,13 +147,33 @@ class SummaryAgent {
       
       // Language-specific headers and content
       if (this.userLanguage === 'ko') {
-        formattedResponse = `## 📅 앞으로 ${timeRange === '3 days' ? '3일간의' : timeRange} 일정\n\n`;
+        const rangeText = timeRange === '3 days' ? '3일간의' : 
+                         timeRange === 'week' ? '이번 주' :
+                         timeRange === 'today' ? '오늘의' :
+                         timeRange === 'tomorrow' ? '내일의' :
+                         timeRange === 'month' ? '이번 달' : timeRange;
+        formattedResponse = `## 📅 ${rangeText} 일정\n\n`;
       } else if (this.userLanguage === 'ja') {
-        formattedResponse = `## 📅 今後${timeRange === '3 days' ? '3日間' : timeRange}の予定\n\n`;
+        const rangeText = timeRange === '3 days' ? '3日間' :
+                         timeRange === 'week' ? '今週' :
+                         timeRange === 'today' ? '今日' :
+                         timeRange === 'tomorrow' ? '明日' :
+                         timeRange === 'month' ? '今月' : timeRange;
+        formattedResponse = `## 📅 ${rangeText}の予定\n\n`;
       } else if (this.userLanguage === 'zh') {
-        formattedResponse = `## 📅 未来${timeRange === '3 days' ? '3天' : timeRange}的日程\n\n`;
+        const rangeText = timeRange === '3 days' ? '3天' :
+                         timeRange === 'week' ? '本周' :
+                         timeRange === 'today' ? '今天' :
+                         timeRange === 'tomorrow' ? '明天' :
+                         timeRange === 'month' ? '本月' : timeRange;
+        formattedResponse = `## 📅 ${rangeText}的日程\n\n`;
       } else {
-        formattedResponse = `## 📅 Next ${timeRange}\n\n`;
+        const rangeText = timeRange === '3 days' ? 'Next 3 days' :
+                         timeRange === 'week' ? 'This week' :
+                         timeRange === 'today' ? 'Today' :
+                         timeRange === 'tomorrow' ? 'Tomorrow' :
+                         timeRange === 'month' ? 'This month' : timeRange;
+        formattedResponse = `## 📅 ${rangeText}\n\n`;
       }
       
       // Format calendar events
@@ -211,10 +231,29 @@ class SummaryAgent {
           formattedResponse += "\n";
         }
       } else {
-        const noEventsText = this.userLanguage === 'ko' ? `앞으로 ${timeRange === '3 days' ? '3일간' : timeRange} 예정된 일정이 없습니다.` :
-                           this.userLanguage === 'ja' ? `今後${timeRange === '3 days' ? '3日間' : timeRange}の予定はありません。` :
-                           this.userLanguage === 'zh' ? `未来${timeRange === '3 days' ? '3天' : timeRange}没有安排的日程。` :
-                           `No events scheduled for the next ${timeRange}.`;
+        const noEventsText = this.userLanguage === 'ko' ? 
+                           (timeRange === 'week' ? '이번 주 예정된 일정이 없습니다.' :
+                            timeRange === 'today' ? '오늘 예정된 일정이 없습니다.' :
+                            timeRange === 'tomorrow' ? '내일 예정된 일정이 없습니다.' :
+                            timeRange === 'month' ? '이번 달 예정된 일정이 없습니다.' :
+                            `${timeRange} 예정된 일정이 없습니다.`) :
+                           this.userLanguage === 'ja' ? 
+                           (timeRange === 'week' ? '今週の予定はありません。' :
+                            timeRange === 'today' ? '今日の予定はありません。' :
+                            timeRange === 'tomorrow' ? '明日の予定はありません。' :
+                            timeRange === 'month' ? '今月の予定はありません。' :
+                            `${timeRange}の予定はありません。`) :
+                           this.userLanguage === 'zh' ? 
+                           (timeRange === 'week' ? '本周没有安排的日程。' :
+                            timeRange === 'today' ? '今天没有安排的日程。' :
+                            timeRange === 'tomorrow' ? '明天没有安排的日程。' :
+                            timeRange === 'month' ? '本月没有安排的日程。' :
+                            `${timeRange}没有安排的日程。`) :
+                           (timeRange === 'week' ? 'No events scheduled this week.' :
+                            timeRange === 'today' ? 'No events scheduled today.' :
+                            timeRange === 'tomorrow' ? 'No events scheduled tomorrow.' :
+                            timeRange === 'month' ? 'No events scheduled this month.' :
+                            `No events scheduled for ${timeRange}.`);
         formattedResponse += noEventsText + '\n';
       }
       
@@ -535,22 +574,35 @@ Respond in JSON format:
         return { finalResponse: results.summary };
       }
       
-      // Otherwise, create a simple response from the data
-      let response = "";
-      
-      if (results.calendar) {
-        response += `Calendar: ${JSON.stringify(results.calendar, null, 2)}\n\n`;
+      // Otherwise, format the data properly using Summary Agent
+      if ((results.calendar || results.tasks) && this.summaryAgent) {
+        const calendarData = results.calendar || [];
+        const tasksData = results.tasks || [];
+        
+        // Set user language before processing
+        this.summaryAgent.setUserLanguage(state.userRequest);
+        
+        // Determine time range based on request
+        let timeRange = "week";
+        if (state.userRequest.toLowerCase().includes("today")) {
+          timeRange = "today";
+        } else if (state.userRequest.toLowerCase().includes("tomorrow")) {
+          timeRange = "tomorrow";
+        } else if (state.userRequest.toLowerCase().includes("month")) {
+          timeRange = "month";
+        }
+        
+        const summary = await this.summaryAgent.process(
+          calendarData,
+          tasksData,
+          timeRange
+        );
+        
+        return { finalResponse: summary };
       }
       
-      if (results.tasks) {
-        response += `Tasks: ${JSON.stringify(results.tasks, null, 2)}\n\n`;
-      }
-      
-      if (!response) {
-        response = "No data found for your request.";
-      }
-      
-      return { finalResponse: response };
+      // Fallback if no data
+      return { finalResponse: "No calendar events or tasks found for your request." };
     });
 
     // Set up the edges

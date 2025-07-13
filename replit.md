@@ -27,11 +27,14 @@ This is a production-ready AI agent chatbot framework built with React frontend 
 - **Smart Detection**: Uses character pattern matching to identify language
 - **Fixed Tool Binding**: Corrected Azure OpenAI tool binding to use proper invoke parameters
 
-**Bug Fix (July 13, 2025 - 9:42 PM):** Fixed regular chat message timeouts and schedule requests:
+**Bug Fix (July 13, 2025 - 9:45 PM):** Fixed schedule formatting and raw data output:
 - **Direct Azure OpenAI**: Regular chat messages now use direct Azure OpenAI without complex tool binding
 - **Schedule Detection**: System detects schedule-related keywords and routes to Multi-Agent Orchestrator
 - **Smart Routing**: Schedule/calendar/task requests use appropriate tools, other messages use simple chat
 - **Fixed Import Error**: Added missing AIMessage import in agent.ts
+- **Fixed Raw Data Output**: Aggregator now uses Summary Agent to format all calendar/task data
+- **Dynamic Time Ranges**: Supports week, today, tomorrow, month based on user request
+- **Localized Formatting**: All time ranges properly formatted in detected language
 - **Reduced Timeouts**: Set 15-second timeout for regular chat messages with single retry
 - **Fallback Strategy**: Life Manager system remains as fallback for tool-required operations
 - **Improved Performance**: Regular conversations no longer experience 60-second timeouts
