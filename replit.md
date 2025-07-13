@@ -27,7 +27,15 @@ This is a production-ready AI agent chatbot framework built with React frontend 
 - **Smart Detection**: Uses character pattern matching to identify language
 - **Fixed Tool Binding**: Corrected Azure OpenAI tool binding to use proper invoke parameters
 
-**Bug Fix (July 13, 2025 - 9:59 PM):** Fixed task retrieval context error and multi-list support:
+**Bug Fix (July 13, 2025 - 10:16 PM):** Fixed task organization by list vs priority:
+- **Task List Organization**: Added detection for "by list" or "organized by list" in user requests
+- **Summary Agent Enhancement**: Updated Summary Agent to accept original user request for context
+- **Dynamic Organization**: System now organizes tasks by their actual Google Task lists when requested
+- **Priority Fallback**: Maintains priority-based organization as default for "all tasks" requests
+- **List Headers**: Shows proper task list names (Book, 주문목록, 한국, Grocery, 기백 To Do, etc.)
+- **Fixed Tool Schema**: Removed default "@default" value from get_tasks tool that was forcing single list
+- **Multi-List Support**: Now correctly fetches from all 6 task lists instead of just default
+- **Context Passing**: All Summary Agent calls now pass original user request for better organization detection
 - **Direct Azure OpenAI**: Regular chat messages now use direct Azure OpenAI without complex tool binding
 - **Schedule Detection**: System detects schedule-related keywords and routes to Multi-Agent Orchestrator
 - **Smart Routing**: Schedule/calendar/task requests use appropriate tools, other messages use simple chat

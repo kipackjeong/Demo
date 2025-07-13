@@ -145,7 +145,7 @@ class SummaryAgent {
     console.log(`📝 Summary Agent: Detected language: ${this.userLanguage}`);
   }
 
-  async process(calendarData: any[], tasksData: any[], timeRange: string = "3 days"): Promise<string> {
+  async process(calendarData: any[], tasksData: any[], timeRange: string = "3 days", userRequest: string = ""): Promise<string> {
     console.log("📝 SUMMARY AGENT: Creating summary");
     console.log(`Processing ${calendarData.length} calendar events and ${tasksData.length} tasks`);
     
@@ -286,7 +286,46 @@ class SummaryAgent {
         const activeTasks = tasksData.filter(task => task.status !== 'completed');
         
         if (activeTasks.length > 0) {
-          if (timeRange === 'all') {
+          // Check if user wants organization by list
+          const organizeByList = userRequest.toLowerCase().includes('by list') || 
+                               userRequest.toLowerCase().includes('organized by list') ||
+                               userRequest.toLowerCase().includes('group by list');
+          
+          if (timeRange === 'all' && organizeByList) {
+            // Organize tasks by task list
+            const tasksByList = activeTasks.reduce((acc: any, task) => {
+              const listTitle = task.taskListTitle || 'Unknown List';
+              if (!acc[listTitle]) {
+                acc[listTitle] = [];
+              }
+              acc[listTitle].push(task);
+              return acc;
+            }, {});
+            
+            // Sort task lists and add to response
+            const sortedLists = Object.keys(tasksByList).sort();
+            for (const listTitle of sortedLists) {
+              const tasksInList = tasksByList[listTitle];
+              formattedResponse += `### 📋 ${listTitle}\n`;
+              for (const task of tasksInList) {
+                formattedResponse += `- ${task.title}`;
+                if (task.due) {
+                  const dueDate = new Date(task.due);
+                  const locale = this.userLanguage === 'ko' ? 'ko-KR' : 
+                               this.userLanguage === 'ja' ? 'ja-JP' :
+                               this.userLanguage === 'zh' ? 'zh-CN' : 'en-US';
+                  
+                  const dueLabel = this.userLanguage === 'ko' ? '마감일' :
+                                  this.userLanguage === 'ja' ? '期限' :
+                                  this.userLanguage === 'zh' ? '截止日期' : 'Due';
+                  
+                  formattedResponse += ` (${dueLabel}: ${dueDate.toLocaleDateString(locale, { month: 'short', day: 'numeric' })})`;
+                }
+                formattedResponse += "\n";
+              }
+              formattedResponse += "\n";
+            }
+          } else if (timeRange === 'all') {
             // Organize tasks by priority
             const highPriorityTasks = activeTasks.filter(task => task.priority === 'high');
             const mediumPriorityTasks = activeTasks.filter(task => task.priority === 'medium');
@@ -640,7 +679,8 @@ Respond in JSON format:
         results.summary = await this.summaryAgent.process(
           calendarData,
           tasksData,
-          state.isInitialSummary ? "3 days" : "week"
+          state.isInitialSummary ? "3 days" : "week",
+          state.userRequest
         );
       }
       
@@ -665,7 +705,8 @@ Respond in JSON format:
         const summary = await this.summaryAgent.process(
           calendarData,
           tasksData,
-          "3 days"
+          "3 days",
+          state.userRequest
         );
         
         return { finalResponse: summary };
@@ -702,7 +743,8 @@ Respond in JSON format:
         const summary = await this.summaryAgent.process(
           calendarData,
           tasksData,
-          timeRange
+          timeRange,
+          state.userRequest
         );
         
         return { finalResponse: summary };
