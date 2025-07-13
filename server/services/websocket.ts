@@ -103,6 +103,12 @@ async function handleWebSocketMessage(
         mcpServer.configureWithUserTokens(user);
         agentService = new AgentService(user);
         console.log("Configured services with Google tokens for user:", user.email);
+      } else {
+        console.log("User tokens status:", {
+          email: user?.email,
+          hasAccessToken: !!user?.googleAccessToken,
+          hasRefreshToken: !!user?.googleRefreshToken
+        });
       }
     }
     

@@ -2,10 +2,12 @@ import { useState, useEffect } from "react";
 import { HeaderBar } from "@/components/HeaderBar";
 import { ChatWindow } from "@/components/ChatWindow";
 import { MessageInput } from "@/components/MessageInput";
+import { GoogleAuthWarning } from "@/components/GoogleAuthWarning";
 import { useSimpleWebSocket } from "@/hooks/useSimpleWebSocket";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
 import type { Message } from "@shared/schema";
 
 export default function ChatPage() {
@@ -18,6 +20,13 @@ export default function ChatPage() {
   const { toast } = useToast();
   const { theme, toggleTheme } = useTheme();
   const { user, isAuthenticated, isLoading } = useAuth();
+
+  // Check Google integration status
+  const { data: googleStatus } = useQuery({
+    queryKey: ["/api/auth/google-status"],
+    enabled: isAuthenticated,
+    refetchInterval: 60000, // Check every minute
+  });
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -166,6 +175,10 @@ export default function ChatPage() {
     setSessionId(newSessionId);
   };
 
+  const handleReauthorizeGoogle = () => {
+    window.location.href = "/api/auth/google?force=true";
+  };
+
   const handleRegenerateLastResponse = () => {
     const lastUserMessage = messages.filter(m => m.role === "user").pop();
     if (lastUserMessage) {
@@ -198,6 +211,12 @@ export default function ChatPage() {
       />
       
       <main className="flex-1 overflow-hidden flex flex-col">
+        {googleStatus?.needsReauthorization && (
+          <div className="px-4 py-2">
+            <GoogleAuthWarning onReauthorize={handleReauthorizeGoogle} />
+          </div>
+        )}
+        
         <ChatWindow
           messages={messages}
           isTyping={isTyping}

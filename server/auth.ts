@@ -95,13 +95,24 @@ export function setupAuth(app: Express) {
           'profile',
           'email',
           'https://www.googleapis.com/auth/calendar',
-          'https://www.googleapis.com/auth/tasks'
+          'https://www.googleapis.com/auth/calendar.readonly',
+          'https://www.googleapis.com/auth/calendar.events',
+          'https://www.googleapis.com/auth/tasks',
+          'https://www.googleapis.com/auth/tasks.readonly'
         ],
         accessType: 'offline',
-        prompt: 'consent'
+        prompt: 'consent',
+        includeGrantedScopes: true,
+        state: 'state'
       },
       async (accessToken, refreshToken, profile, done) => {
         try {
+          console.log("Google OAuth callback received:");
+          console.log("- Profile ID:", profile.id);
+          console.log("- Email:", profile.emails?.[0]?.value);
+          console.log("- Access Token:", accessToken ? "Present" : "Missing");
+          console.log("- Refresh Token:", refreshToken ? "Present" : "Missing");
+          
           let user = await storage.getUserByGoogleId(profile.id);
           
           if (!user) {
@@ -110,6 +121,7 @@ export function setupAuth(app: Express) {
             
             if (user) {
               // Link Google account to existing user
+              console.log("Linking Google account to existing user:", user.email);
               user = await storage.updateUser(user.id, {
                 googleId: profile.id,
                 googleAccessToken: accessToken,
@@ -117,6 +129,7 @@ export function setupAuth(app: Express) {
               });
             } else {
               // Create new user
+              console.log("Creating new user from Google profile");
               user = await storage.createUser({
                 email: profile.emails?.[0]?.value || "",
                 firstName: profile.name?.givenName,
@@ -132,15 +145,22 @@ export function setupAuth(app: Express) {
             }
           } else {
             // Update tokens
+            console.log("Updating tokens for existing Google user:", user.email);
             user = await storage.updateUser(user.id, {
               googleAccessToken: accessToken,
               googleRefreshToken: refreshToken,
             });
           }
           
-          console.log(`Google OAuth: Stored tokens for user ${user.email}`);
-          console.log(`- Access Token: ${accessToken ? 'Present' : 'Missing'}`);
-          console.log(`- Refresh Token: ${refreshToken ? 'Present' : 'Missing'}`);
+          console.log(`Google OAuth: Final user state for ${user.email}`);
+          console.log(`- User ID: ${user.id}`);
+          console.log(`- Access Token: ${user.googleAccessToken ? 'Present' : 'Missing'}`);
+          console.log(`- Refresh Token: ${user.googleRefreshToken ? 'Present' : 'Missing'}`);
+          
+          // Force refresh token issue if missing
+          if (!refreshToken && !user.googleRefreshToken) {
+            console.warn("WARNING: No refresh token provided by Google. User may need to re-authorize.");
+          }
 
           return done(null, user);
         } catch (error) {

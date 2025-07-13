@@ -171,6 +171,12 @@ The system automatically falls back to mock data when Google APIs are unavailabl
 - **Protected Routes**: Chat interface and user-specific features require authentication
 - **Login/Signup Page**: Comprehensive authentication page with both login options
 
+### Refresh Token Handling
+- **Force Consent Flow**: Users can re-authorize by visiting `/api/auth/google?force=true`
+- **Token Status Check**: `/api/auth/google-status` endpoint checks if re-authorization is needed
+- **Warning Display**: Shows a yellow warning banner when Google refresh token is missing
+- **Automatic Detection**: Chat interface detects missing tokens and prompts for re-authorization
+
 ### Google API Integration
 - **OAuth Token Storage**: Google OAuth tokens stored securely in database
 - **Calendar API Access**: Direct access to Google Calendar using user's OAuth tokens

@@ -23,6 +23,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(req.user);
   });
 
+  // Check Google integration status
+  app.get("/api/auth/google-status", requireAuth, async (req, res) => {
+    const user = req.user as User;
+    res.json({
+      hasGoogleAccount: !!user.googleId,
+      hasAccessToken: !!user.googleAccessToken,
+      hasRefreshToken: !!user.googleRefreshToken,
+      needsReauthorization: !!user.googleId && !user.googleRefreshToken
+    });
+  });
+
   app.post("/api/auth/login", async (req, res, next) => {
     const passport = require("passport");
     passport.authenticate("local", (err: any, user: any, info: any) => {
@@ -73,15 +84,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Google OAuth routes
   app.get("/api/auth/google", async (req, res, next) => {
     const passport = require("passport");
+    // Force re-authorization if user needs refresh token
+    const forcePrompt = req.query.force === 'true' ? 'consent' : 'select_account';
+    
     passport.authenticate("google", { 
       scope: [
         "profile", 
         "email",
         "https://www.googleapis.com/auth/calendar",
-        "https://www.googleapis.com/auth/tasks"
+        "https://www.googleapis.com/auth/calendar.readonly",
+        "https://www.googleapis.com/auth/calendar.events",
+        "https://www.googleapis.com/auth/tasks",
+        "https://www.googleapis.com/auth/tasks.readonly"
       ],
       accessType: 'offline',
-      prompt: 'consent'
+      prompt: forcePrompt,
+      includeGrantedScopes: true,
+      state: 'state'
     })(req, res, next);
   });
 
