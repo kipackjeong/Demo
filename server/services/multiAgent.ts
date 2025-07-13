@@ -668,6 +668,17 @@ Keep the response comprehensive but concise.`;
     return { finalResponse: state.finalResponse || "I'm ready to help you manage your life better!" };
   }
 
+  // Helper to clean markdown code blocks from responses
+  private cleanMarkdownCodeBlocks(response: string): string {
+    // Remove markdown code blocks if the response is wrapped in them
+    const codeBlockPattern = /^```(?:markdown)?\n([\s\S]*?)\n```$/;
+    const match = response.match(codeBlockPattern);
+    if (match) {
+      return match[1].trim();
+    }
+    return response;
+  }
+
   // Main method to generate response using the life management system
   async generateResponse(userMessage: string, sessionId: string = "default"): Promise<string> {
     if (!this.graph) {
@@ -695,7 +706,12 @@ Keep the response comprehensive but concise.`;
       console.log(`Life Manager system completed with decision: ${result.agentDecision}`);
       console.log(`Orchestration plan: ${result.orchestrationPlan}`);
       
-      return result.finalResponse || "I'm having trouble generating a response right now.";
+      const response = result.finalResponse || "I'm having trouble generating a response right now.";
+      // Clean any markdown code blocks from the response
+      const cleanedResponse = this.cleanMarkdownCodeBlocks(response);
+      console.log(`Life Manager system response: "${cleanedResponse.substring(0, 100)}..."`);
+      
+      return cleanedResponse;
     } catch (error) {
       console.error("Life Manager system error:", error);
       return "I encountered an error while processing your request. Please try again.";
