@@ -275,26 +275,36 @@ Respond with ONLY the agent decision (calendar, tasks, both, or direct_response)
       response = "I'm having trouble connecting to the AI service, but I can still help with calendar management.";
     } else {
       try {
-        const calendarPrompt = `You are the Google Calendar Agent in a Life Management system. Your role is to help users manage their calendar events, appointments, and scheduling.
+        const calendarPrompt = `You are the Google Calendar Agent. Analyze calendar data and provide clear, organized information.
 
-The user asked: "${state.userMessage}"
+User request: "${state.userMessage}"
 
-You have access to the following calendar data:
+Calendar data:
 ${JSON.stringify(calendarData, null, 2)}
 
-IMPORTANT INSTRUCTIONS:
-1. If the user is asking to SCHEDULE, ADD, or CREATE a new meeting/event:
-   - Extract the following details: title, date, time, duration, attendees, description, location
-   - Use tomorrow's date if they say "tomorrow" (current date is ${new Date().toISOString().split('T')[0]})
-   - Default duration is 1 hour if not specified
-   - Respond with: "SCHEDULE_EVENT::{JSON with event details}"
-   
-2. For other requests, respond in completely natural, conversational language - NO markdown formatting, NO structured lists, NO headers, NO bullet points, NO bold text, NO asterisks, NO dashes, NO numbered lists.
+INSTRUCTIONS:
+1. If user wants to SCHEDULE/ADD/CREATE an event:
+   - Extract: title, date, time, duration, attendees, description, location
+   - Tomorrow = ${new Date(Date.now() + 86400000).toISOString().split('T')[0]}
+   - Default duration: 1 hour
+   - Reply: "SCHEDULE_EVENT::{JSON}"
 
-Example scheduling response:
-SCHEDULE_EVENT::{"title":"Design Discussion with Kathy","date":"2025-07-13","time":"6:00 PM","endTime":"7:00 PM","attendees":["kathy@email.com"],"description":"Design discussion meeting","location":"TBD"}
+2. For INITIAL_SUMMARY requests:
+   - List ALL events clearly with dates and times
+   - Use consistent date format (e.g., "July 15, 2025")
+   - Include relevant details like location or attendees
+   - Keep it organized and easy to read
 
-Based on the user's request, analyze the calendar data and provide a helpful response.`;
+3. For other requests:
+   - Answer directly about their calendar
+   - Be helpful and specific
+   - Use natural language
+
+RULES:
+- Use ONLY English throughout your response
+- Present actual data from the calendar
+- Be clear and organized
+- Don't make up events or details`;
 
         const messages = [new SystemMessage(calendarPrompt)];
         const aiResponse = await this.azureOpenAI.invoke(messages);
@@ -404,30 +414,39 @@ Based on the user's request, analyze the calendar data and provide a helpful res
       response = "I'm having trouble connecting to the AI service, but I can still help with task management.";
     } else {
       try {
-        const tasksPrompt = `You are the Google Tasks Agent in a Life Management system. Your role is to help users manage their tasks, todos, and reminders.
+        const tasksPrompt = `You are the Google Tasks Agent. Analyze tasks data and provide clear, organized information.
 
-The user asked: "${state.userMessage}"
+User request: "${state.userMessage}"
 
-You have access to the following tasks data:
+Tasks data:
 ${JSON.stringify(tasksData, null, 2)}
 
-Calendar context from previous agent: ${state.context?.calendarProcessed ? "Calendar data was processed" : "No calendar data processed"}
+INSTRUCTIONS:
+1. If user wants to ADD/CREATE a task:
+   - Extract: title, description, priority, dueDate, category, estimatedTime, tags
+   - Default priority: "medium"
+   - Reply: "CREATE_TASK::{JSON}"
 
-IMPORTANT INSTRUCTIONS:
-1. If the user is asking to ADD, CREATE a new task:
-   - Extract details: title, description, priority, dueDate, category, estimatedTime, tags
-   - Default priority is "medium" if not specified
-   - Respond with: "CREATE_TASK::{JSON with task details}"
-   
-2. If the user wants to COMPLETE or MARK a task as done:
-   - Find the matching task and respond with: "COMPLETE_TASK::{task_id}"
-   
-3. For other requests, respond in completely natural, conversational language - NO markdown formatting.
+2. If user wants to COMPLETE/MARK task as done:
+   - Find task and reply: "COMPLETE_TASK::{task_id}"
 
-Example task creation response:
-CREATE_TASK::{"title":"Review design mockups","description":"Review and provide feedback on new UI mockups","priority":"high","dueDate":"2025-07-15","category":"work","estimatedTime":"2 hours","tags":["design","review"]}
+3. For INITIAL_SUMMARY requests:
+   - Group tasks by priority (High, Medium, Low)
+   - Show task title and due date clearly
+   - Include brief descriptions if relevant
+   - Keep it organized and scannable
 
-Based on the user's request, analyze the tasks data and provide a helpful response.`;
+4. For other requests:
+   - Answer directly about their tasks
+   - Be helpful and specific
+   - Use natural language
+
+RULES:
+- Use ONLY English throughout your response
+- Present actual data from the tasks
+- Be clear and organized
+- Don't make up tasks or details
+- Focus on what's most important/urgent`;
 
         const messages = [new SystemMessage(tasksPrompt)];
         const aiResponse = await this.azureOpenAI.invoke(messages);
@@ -625,31 +644,54 @@ Block time on Tuesday afternoon to finalize your client presentation. Try to com
           }
         } else {
           try {
-            const analysisPrompt = `You are the Life Manager Finalizer. You have data from both the Calendar Agent and Tasks Agent.
+            const analysisPrompt = `You are an intelligent Life Manager assistant helping the user organize their schedule and tasks.
 
 User request: "${state.userMessage}"
 
-Calendar data summary: ${state.calendarData?.length || 0} events
-Tasks data summary: ${state.tasksData?.length || 0} tasks
+Calendar Events Data:
+${JSON.stringify(state.calendarData, null, 2)}
 
-Previous agent response: "${state.finalResponse}"
+Tasks Data:
+${JSON.stringify(state.tasksData, null, 2)}
 
-CRITICAL: 
-- If the user request contains "[INITIAL_SUMMARY]", provide a concise markdown-formatted weekly overview with:
-  ## 📅 This Week's Calendar
-  List key events with dates and times
-  
-  ## ✅ Tasks Overview  
-  List priority tasks with due dates
-  
-  ## 💡 Recommendations
-  Brief insights and suggestions
+IMPORTANT INSTRUCTIONS FOR INITIAL SUMMARY:
+If the user request contains "[INITIAL_SUMMARY]", create a clean, well-organized weekly overview following this EXACT format:
 
-- Otherwise, respond in completely natural, conversational language - NO markdown formatting, NO structured lists, NO headers, NO bullet points, NO bold text, NO asterisks, NO dashes, NO numbered lists. Just speak naturally as if you're having a friendly conversation.
+## 📅 This Week's Calendar
 
-Please provide a final, integrated response that combines insights from both calendar and tasks, identifies potential scheduling conflicts or opportunities, suggests time management improvements, and provides actionable next steps.
+[List each calendar event on its own line with clear formatting]
+- **Event Title** - Day, Time
+  Location: [if available]
+  Details: [brief description if relevant]
 
-Keep the response comprehensive but concise.`;
+## ✅ Tasks Overview
+
+[Group tasks by priority - High, Medium, Low]
+
+**High Priority:**
+- Task title (Due: date) - brief description if needed
+
+**Medium Priority:**
+- Task title (Due: date) - brief description if needed
+
+**Low Priority:**
+- Task title (Due: date) - brief description if needed
+
+## 💡 Recommendations
+
+[Provide 3-4 actionable, specific recommendations based on their schedule and tasks]
+- Clear, specific suggestion
+- Another helpful recommendation
+- Time management tip based on their actual data
+
+CRITICAL RULES:
+1. Use ONLY the actual data provided - don't make up events or tasks
+2. Keep language clear and professional
+3. Format dates consistently (e.g., "Monday, July 15" or "July 15, 2025")
+4. Be specific with times (e.g., "2:00 PM - 3:00 PM")
+5. If data seems unclear, present it in the clearest way possible
+6. Focus on being helpful and organized, not creative
+7. Do NOT mix languages - use English consistently throughout`;
 
             const messages = [new SystemMessage(analysisPrompt)];
             const response = await this.azureOpenAI.invoke(messages);
