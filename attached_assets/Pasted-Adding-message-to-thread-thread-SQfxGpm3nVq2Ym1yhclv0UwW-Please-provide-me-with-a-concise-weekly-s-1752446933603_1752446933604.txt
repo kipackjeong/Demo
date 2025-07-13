@@ -1,0 +1,83 @@
+Adding message to thread thread_SQfxGpm3nVq2Ym1yhclv0UwW: "Please provide me with a concise weekly summary in markdown format showing my calendar events and tasks."
+Adding message to thread thread_SQfxGpm3nVq2Ym1yhclv0UwW: "Please provide me with a concise weekly summary in markdown format showing my calendar events and tasks."
+Running assistant asst_qEKQZ0K2E1N70JIbPAXXcTTm on thread thread_SQfxGpm3nVq2Ym1yhclv0UwW
+Running assistant asst_qEKQZ0K2E1N70JIbPAXXcTTm on thread thread_SQfxGpm3nVq2Ym1yhclv0UwW
+OpenAI Assistant error: BadRequestError: 400 Thread thread_SQfxGpm3nVq2Ym1yhclv0UwW already has an active run run_HGtUEoMqRyVM2gVtA1WA26iB.
+    at Function.generate (/home/runner/workspace/node_modules/openai/src/core/error.ts:72:14)
+    at OpenAI.makeStatusError (/home/runner/workspace/node_modules/openai/src/client.ts:428:28)
+    at OpenAI.makeRequest (/home/runner/workspace/node_modules/openai/src/client.ts:651:24)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async OpenAIAssistantAgent.generateResponse (/home/runner/workspace/server/services/openaiAssistant.ts:240:19)
+    at async AgentService.generateResponse (/home/runner/workspace/server/services/agent.ts:127:26)
+    at async handleWebSocketMessage (/home/runner/workspace/server/services/websocket.ts:169:24)
+    at async WebSocket.<anonymous> (/home/runner/workspace/server/services/websocket.ts:43:9) {
+  status: 400,
+  headers: Headers {
+    date: 'Sun, 13 Jul 2025 22:47:26 GMT',
+    'content-type': 'application/json',
+    'content-length': '206',
+    connection: 'keep-alive',
+    'openai-version': '2020-10-01',
+    'openai-organization': '-ygjuz2',
+    'x-request-id': 'req_db5f911f971f77cf752542baf58cc974',
+    'openai-processing-ms': '424',
+    'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
+    'cf-cache-status': 'DYNAMIC',
+    'set-cookie': '__cf_bm=kGchYMnZzylndHeSZy7gGaJlbuUFzCJI0Q5D00at8h4-1752446846-1.0.1.1-oSBezIYApU5yZqWo1wNo641cbiXgKlpdPXja7W1ORm5KHXZq3zs0OB1ZTIutmXEUOJkIMJcNVv9WASjUIlfnu7gzRnfKWYw9lDGlTwQCq2c; path=/; expires=Sun, 13-Jul-25 23:17:26 GMT; domain=.api.openai.com; HttpOnly; Secure; SameSite=None, _cfuvid=sAXwOMMTHkTiNLpABULyRw9OpccqebqrlVv1rvSxdNw-1752446846616-0.0.1.1-604800000; path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None',
+    'x-content-type-options': 'nosniff',
+    server: 'cloudflare',
+    'cf-ray': '95ec52743be8b03a-ATL',
+    'alt-svc': 'h3=":443"; ma=86400'
+  },
+  requestID: 'req_db5f911f971f77cf752542baf58cc974',
+  error: {
+    message: 'Thread thread_SQfxGpm3nVq2Ym1yhclv0UwW already has an active run run_HGtUEoMqRyVM2gVtA1WA26iB.',
+    type: 'invalid_request_error',
+    param: null,
+    code: null
+  },
+  code: null,
+  param: null,
+  type: 'invalid_request_error'
+}
+Error details: 400 Thread thread_SQfxGpm3nVq2Ym1yhclv0UwW already has an active run run_HGtUEoMqRyVM2gVtA1WA26iB.
+OpenAI Assistant response: "## 📅 Next 3 Days
+Unable to fetch calendar events - please check your Google Calendar connection.
+
+#..."
+Agent response generated, starting stream...
+Starting stream response. Response length: 359, Is initial summary: true
+First 200 chars of response: ## 📅 Next 3 Days
+Unable to fetch calendar events - please check your Google Calendar connection.
+
+## ✅ Tasks  
+Unable to fetch tasks - please check your Google Tasks connection.
+
+## 💡 Recommendation...
+Created run with ID: run_HGtUEoMqRyVM2gVtA1WA26iB on thread thread_SQfxGpm3nVq2Ym1yhclv0UwW
+OpenAI Assistant error: OpenAIError: Path parameters result in path with invalid segments:
+Value of type Undefined is not a valid path parameter
+/threads/undefined/runs/thread_SQfxGpm3nVq2Ym1yhclv0UwW
+         ^^^^^^^^^
+    at path (/home/runner/workspace/node_modules/openai/src/internal/utils/path.ts:75:13)
+    at Runs.retrieve (/home/runner/workspace/node_modules/openai/src/resources/beta/threads/runs/runs.ts:88:33)
+    at OpenAIAssistantAgent.generateResponse (/home/runner/workspace/server/services/openaiAssistant.ts:246:59)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async AgentService.generateResponse (/home/runner/workspace/server/services/agent.ts:127:26)
+    at async handleWebSocketMessage (/home/runner/workspace/server/services/websocket.ts:169:24)
+    at async WebSocket.<anonymous> (/home/runner/workspace/server/services/websocket.ts:43:9)
+Error details: Path parameters result in path with invalid segments:
+Value of type Undefined is not a valid path parameter
+/threads/undefined/runs/thread_SQfxGpm3nVq2Ym1yhclv0UwW
+         ^^^^^^^^^
+OpenAI Assistant response: "## 📅 Next 3 Days
+Unable to fetch calendar events - please check your Google Calendar connection.
+
+#..."
+Agent response generated, starting stream...
+Starting stream response. Response length: 359, Is initial summary: true
+First 200 chars of response: ## 📅 Next 3 Days
+Unable to fetch calendar events - please check your Google Calendar connection.
+
+## ✅ Tasks  
+Unable to fetch tasks - please check your Google Tasks connection.

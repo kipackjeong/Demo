@@ -13,6 +13,8 @@ export class OpenAIAssistantAgent {
   private isInitialized: boolean = false;
   private initializationPromise: Promise<void> | null = null;
   private threadCreationLocks: Map<string, Promise<string>> = new Map(); // sessionId -> Promise<threadId>
+  private activeRuns: Map<string, string> = new Map(); // threadId -> runId
+  private runLocks: Map<string, Promise<string>> = new Map(); // sessionId -> Promise<response>
 
   constructor(user?: any) {
     const apiKey = process.env.OPENAI_API_KEY;
@@ -183,6 +185,27 @@ For regular requests, format responses appropriately based on what the user is a
    * Generate response using OpenAI Assistant
    */
   async generateResponse(userMessage: string, sessionId: string, isInitialSummary: boolean = false): Promise<string> {
+    // Check if there's already an active request for this session
+    const existingRequest = this.runLocks.get(sessionId);
+    if (existingRequest) {
+      console.log(`Request already in progress for session ${sessionId}, waiting...`);
+      return await existingRequest;
+    }
+
+    // Create a new request promise
+    const requestPromise = this.processRequest(userMessage, sessionId, isInitialSummary);
+    this.runLocks.set(sessionId, requestPromise);
+
+    try {
+      const result = await requestPromise;
+      return result;
+    } finally {
+      // Clean up the lock
+      this.runLocks.delete(sessionId);
+    }
+  }
+
+  private async processRequest(userMessage: string, sessionId: string, isInitialSummary: boolean): Promise<string> {
     // Wait for initialization to complete
     if (this.initializationPromise) {
       console.log("Waiting for OpenAI Assistant initialization to complete...");
@@ -235,12 +258,69 @@ For regular requests, format responses appropriately based on what the user is a
         content: userMessage
       });
 
+      // Check if thread already has an active run
+      const activeRunId = this.activeRuns.get(threadId);
+      if (activeRunId) {
+        console.log(`Thread ${threadId} already has active run ${activeRunId}, checking status...`);
+        try {
+          const existingRun = await this.openai.beta.threads.runs.retrieve(threadId, activeRunId);
+          if (existingRun.status === 'in_progress' || existingRun.status === 'requires_action') {
+            console.log(`Existing run is still active with status: ${existingRun.status}`);
+            // Wait for the existing run to complete
+            let runStatus = existingRun;
+            let iterations = 0;
+            const maxIterations = 30;
+            
+            while (runStatus.status !== "completed" && runStatus.status !== "failed" && iterations < maxIterations) {
+              if (runStatus.status === "requires_action" && runStatus.required_action?.type === "submit_tool_outputs") {
+                const toolCalls = runStatus.required_action.submit_tool_outputs.tool_calls;
+                console.log(`Handling ${toolCalls.length} tool calls for existing run`);
+                const toolOutputs = await this.handleToolCalls(toolCalls);
+                
+                await this.openai.beta.threads.runs.submitToolOutputs(threadId, activeRunId, {
+                  tool_outputs: toolOutputs
+                });
+              }
+              
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              runStatus = await this.openai.beta.threads.runs.retrieve(threadId, activeRunId);
+              iterations++;
+            }
+            
+            // Clean up the active run
+            this.activeRuns.delete(threadId);
+            
+            // Get the response from the completed run
+            const messages = await this.openai.beta.threads.messages.list(threadId);
+            const lastMessage = messages.data[0];
+            
+            if (lastMessage.role === "assistant" && lastMessage.content[0].type === "text") {
+              return lastMessage.content[0].text.value;
+            }
+          }
+        } catch (error) {
+          console.error(`Error checking existing run: ${error.message}`);
+          // Clean up and continue with new run
+          this.activeRuns.delete(threadId);
+        }
+      }
+
       // Run the assistant
       console.log(`Running assistant ${this.assistant.id} on thread ${threadId}`);
-      const run = await this.openai.beta.threads.runs.create(threadId, {
-        assistant_id: this.assistant.id
-      });
-      console.log(`Created run with ID: ${run.id} on thread ${threadId}`);
+      let run;
+      try {
+        run = await this.openai.beta.threads.runs.create(threadId, {
+          assistant_id: this.assistant.id
+        });
+        console.log(`Created run with ID: ${run.id} on thread ${threadId}`);
+        
+        // Store the active run
+        this.activeRuns.set(threadId, run.id);
+      } catch (error) {
+        console.error("Failed to create run:", error);
+        console.error("Error details:", error.message);
+        throw error;
+      }
 
       // Wait for completion and handle tool calls
       let runStatus = await this.openai.beta.threads.runs.retrieve(threadId, run.id);
@@ -271,6 +351,9 @@ For regular requests, format responses appropriately based on what the user is a
       }
 
       console.log(`Final run status: ${runStatus.status}`);
+
+      // Clean up the active run
+      this.activeRuns.delete(threadId);
 
       if (runStatus.status === "failed") {
         console.error("Assistant run failed:", runStatus.last_error);
@@ -303,6 +386,12 @@ For regular requests, format responses appropriately based on what the user is a
       if (error.response) {
         console.error("API response:", error.response.data);
       }
+      
+      // Clean up any active run for this thread
+      if (threadId) {
+        this.activeRuns.delete(threadId);
+      }
+      
       return this.getFallbackResponse(userMessage, isInitialSummary);
     }
   }
