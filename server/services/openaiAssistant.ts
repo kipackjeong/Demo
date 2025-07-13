@@ -11,6 +11,7 @@ export class OpenAIAssistantAgent {
   private mcpToolAdapter: MCPToolAdapter;
   private threads: Map<string, string> = new Map(); // sessionId -> threadId
   private isInitialized: boolean = false;
+  private initializationPromise: Promise<void> | null = null;
 
   constructor(user?: any) {
     const apiKey = process.env.OPENAI_API_KEY;
@@ -20,7 +21,7 @@ export class OpenAIAssistantAgent {
 
     this.openai = new OpenAI({ apiKey });
     this.mcpToolAdapter = new MCPToolAdapter();
-    this.initializeAssistant(user);
+    this.initializationPromise = this.initializeAssistant(user);
   }
 
   private async initializeAssistant(user?: any) {
@@ -181,6 +182,17 @@ For regular requests, format responses appropriately based on what the user is a
    * Generate response using OpenAI Assistant
    */
   async generateResponse(userMessage: string, sessionId: string, isInitialSummary: boolean = false): Promise<string> {
+    // Wait for initialization to complete
+    if (this.initializationPromise) {
+      console.log("Waiting for OpenAI Assistant initialization to complete...");
+      try {
+        await this.initializationPromise;
+      } catch (error) {
+        console.error("Failed to initialize OpenAI Assistant:", error);
+        return this.getFallbackResponse(userMessage, isInitialSummary);
+      }
+    }
+    
     if (!this.isInitialized || !this.assistant) {
       console.log("OpenAI Assistant not initialized properly");
       return this.getFallbackResponse(userMessage, isInitialSummary);
