@@ -124,8 +124,8 @@ class SummaryAgent {
     console.log(`Processing ${calendarData.length} calendar events and ${tasksData.length} tasks`);
     
     try {
-      // Instead of using the model, let's format the summary directly
-      let formattedResponse = `## 📅 Next ${timeRange}\n\n`;
+      // Instead of using the model, let's format the summary directly in Korean
+      let formattedResponse = `## 📅 앞으로 ${timeRange === '3 days' ? '3일간의' : timeRange} 일정\n\n`;
       
       // Format calendar events
       if (calendarData.length > 0) {
@@ -141,12 +141,12 @@ class SummaryAgent {
           // Check if date is valid
           let dateTimeStr = '';
           if (!isNaN(startDate.getTime())) {
-            const dateStr = startDate.toLocaleDateString('en-US', { 
+            const dateStr = startDate.toLocaleDateString('ko-KR', { 
               weekday: 'long', 
               month: 'long', 
               day: 'numeric' 
             });
-            const timeStr = startDate.toLocaleTimeString('en-US', { 
+            const timeStr = startDate.toLocaleTimeString('ko-KR', { 
               hour: 'numeric', 
               minute: '2-digit',
               hour12: true 
@@ -156,12 +156,12 @@ class SummaryAgent {
             // Handle separate date and time fields from mock data
             dateTimeStr = `${event.date}, ${event.time}`;
           } else {
-            dateTimeStr = 'Date TBD';
+            dateTimeStr = '날짜 미정';
           }
           
-          formattedResponse += `- **${event.title || event.summary || 'Untitled Event'}** - ${dateTimeStr}\n`;
+          formattedResponse += `- **${event.title || event.summary || '제목 없음'}** - ${dateTimeStr}\n`;
           if (event.location) {
-            formattedResponse += `  Location: ${event.location}\n`;
+            formattedResponse += `  장소: ${event.location}\n`;
           }
           if (event.description) {
             formattedResponse += `  ${event.description}\n`;
@@ -169,10 +169,10 @@ class SummaryAgent {
           formattedResponse += "\n";
         }
       } else {
-        formattedResponse += `No events scheduled for the next ${timeRange}.\n`;
+        formattedResponse += `앞으로 ${timeRange === '3 days' ? '3일간' : timeRange} 예정된 일정이 없습니다.\n`;
       }
       
-      formattedResponse += "\n## ✅ Tasks\n\n";
+      formattedResponse += "\n## ✅ 할 일 목록\n\n";
       
       // Format tasks
       if (tasksData.length > 0) {
@@ -183,21 +183,21 @@ class SummaryAgent {
             formattedResponse += `- ${task.title}`;
             if (task.due) {
               const dueDate = new Date(task.due);
-              formattedResponse += ` (Due: ${dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})`;
+              formattedResponse += ` (마감일: ${dueDate.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })}일)`;
             }
             formattedResponse += "\n";
           }
         } else {
-          formattedResponse += "No active tasks.\n";
+          formattedResponse += "진행 중인 할 일이 없습니다.\n";
         }
       } else {
-        formattedResponse += "No active tasks.\n";
+        formattedResponse += "진행 중인 할 일이 없습니다.\n";
       }
       
-      formattedResponse += "\n## 💡 Recommendations\n\n";
-      formattedResponse += "1. Review your upcoming events and prepare any necessary materials\n";
-      formattedResponse += "2. Focus on completing high-priority tasks first\n";
-      formattedResponse += "3. Consider scheduling time for any overdue tasks\n";
+      formattedResponse += "\n## 💡 추천사항\n\n";
+      formattedResponse += "1. 예정된 일정을 확인하고 필요한 준비를 하세요\n";
+      formattedResponse += "2. 우선순위가 높은 작업부터 완료하세요\n";
+      formattedResponse += "3. 마감일이 지난 작업들을 처리할 시간을 계획하세요\n";
       
       console.log("📝 Summary Agent: Summary created successfully");
       return formattedResponse;

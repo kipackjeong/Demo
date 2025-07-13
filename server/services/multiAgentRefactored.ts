@@ -155,8 +155,16 @@ export class LifeManagerSystemRefactored {
       try {
         // Always provide tools to the model and let it decide intelligently
         console.log("Invoking model with all available tools...");
-        const modelWithTools = this.azureOpenAI!.bindTools(this.tools);
-        const response = await modelWithTools.invoke(messages);
+        const response = await this.azureOpenAI!.invoke(messages, {
+          tools: this.tools.map(tool => ({
+            type: "function" as const,
+            function: {
+              name: tool.name,
+              description: tool.description,
+              parameters: tool.schema,
+            },
+          })),
+        });
         console.log("AGENT RESPONSE:", response.content?.toString());
         
         if (response.tool_calls && response.tool_calls.length > 0) {
