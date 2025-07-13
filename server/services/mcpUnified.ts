@@ -524,8 +524,39 @@ export class MCPUnifiedServer {
       throw new Error("Tasks service not initialized");
     }
 
+    // If no specific taskListId is provided, fetch from all task lists
+    if (!args.taskListId) {
+      const taskListsResponse = await this.tasks.tasklists.list({
+        maxResults: 100,
+      });
+      
+      const taskLists = taskListsResponse.data.items || [];
+      const allTasks = [];
+      
+      for (const taskList of taskLists) {
+        const response = await this.tasks.tasks.list({
+          tasklist: taskList.id,
+          maxResults: args.maxResults || 100,
+          showCompleted: args.showCompleted || false,
+        });
+        
+        const tasks = response.data.items || [];
+        allTasks.push(...tasks.map(task => this.formatTask(task, taskList.id, taskList.title)));
+      }
+      
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(allTasks, null, 2),
+          },
+        ],
+      };
+    }
+
+    // Fetch from specific task list
     const response = await this.tasks.tasks.list({
-      tasklist: args.taskListId || '@default',
+      tasklist: args.taskListId,
       maxResults: args.maxResults || 100,
       showCompleted: args.showCompleted || false,
     });
@@ -686,7 +717,7 @@ export class MCPUnifiedServer {
     };
   }
 
-  private formatTask(task: any) {
+  private formatTask(task: any, taskListId?: string, taskListTitle?: string) {
     return {
       id: task.id,
       title: task.title,
@@ -695,7 +726,30 @@ export class MCPUnifiedServer {
       completed: task.completed || null,
       status: task.status,
       position: task.position,
+      taskListId: taskListId,
+      taskListTitle: taskListTitle,
+      priority: this.inferPriorityFromTitle(task.title),
     };
+  }
+
+  private inferPriorityFromTitle(title: string): "high" | "medium" | "low" {
+    const titleLower = title.toLowerCase();
+    
+    // High priority indicators
+    if (titleLower.includes("urgent") || titleLower.includes("asap") || 
+        titleLower.includes("important") || titleLower.includes("critical") ||
+        titleLower.includes("deadline") || titleLower.includes("proposal")) {
+      return "high";
+    }
+    
+    // Medium priority indicators
+    if (titleLower.includes("meeting") || titleLower.includes("review") ||
+        titleLower.includes("update") || titleLower.includes("prepare")) {
+      return "medium";
+    }
+    
+    // Default to low priority
+    return "low";
   }
 
   // Start the server for standalone mode

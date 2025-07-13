@@ -95,12 +95,17 @@ class TasksAgent {
       if (tasksTool) {
         console.log("✅ Tasks Agent: Directly calling get_tasks tool");
         
-        const result = await tasksTool.func({
-          taskListId: '@default'
-        });
+        // If user asks for "all tasks", don't specify taskListId to get all tasks
+        const isAllTasksRequest = request.toLowerCase().includes('all');
+        const params = isAllTasksRequest ? {} : { taskListId: '@default' };
+        
+        const result = await tasksTool.func(params);
         
         console.log("✅ Tasks Agent: Tool executed successfully");
-        return JSON.parse(result);
+        console.log("✅ Tasks Agent: Raw result:", result);
+        const parsedResult = JSON.parse(result);
+        console.log("✅ Tasks Agent: Parsed result:", parsedResult);
+        return parsedResult;
       }
       
       console.log("✅ Tasks Agent: No tasks tool found");
