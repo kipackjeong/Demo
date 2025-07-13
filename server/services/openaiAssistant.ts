@@ -376,7 +376,25 @@ For regular requests, format responses appropriately based on what the user is a
 
       // Wait for completion and handle tool calls
       console.log(`About to retrieve run. threadId: ${threadId}, runId: ${run.id}`);
-      let runStatus = await this.openai.beta.threads.runs.retrieve(threadId, run.id);
+      console.log(`Type of threadId: ${typeof threadId}, Type of runId: ${typeof run.id}`);
+      
+      let runStatus;
+      try {
+        // Double-check the values before the call
+        if (!threadId || !run.id) {
+          throw new Error(`Invalid parameters: threadId=${threadId}, runId=${run.id}`);
+        }
+        
+        runStatus = await this.openai.beta.threads.runs.retrieve(
+          threadId,
+          run.id
+        );
+      } catch (retrieveError) {
+        console.error("Error during run retrieve:");
+        console.error("Parameters passed: threadId =", threadId, "runId =", run.id);
+        console.error("Error:", retrieveError);
+        throw retrieveError;
+      }
       console.log(`Initial run status: ${runStatus.status}`);
       
       let iterations = 0;
