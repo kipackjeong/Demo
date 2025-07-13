@@ -222,9 +222,11 @@ For regular requests, format responses appropriately based on what the user is a
       return this.getFallbackResponse(userMessage, isInitialSummary);
     }
 
+    let threadId: string | undefined;
+    
     try {
       // Get or create thread for this session with locking to prevent race conditions
-      let threadId = this.threads.get(sessionId);
+      threadId = this.threads.get(sessionId);
       if (!threadId) {
         // Check if thread creation is already in progress
         const existingCreation = this.threadCreationLocks.get(sessionId);
@@ -251,15 +253,58 @@ For regular requests, format responses appropriately based on what the user is a
         }
       }
 
+      // Check if thread already has an active run BEFORE adding message
+      const activeRunId = this.activeRuns.get(threadId);
+      if (activeRunId) {
+        console.log(`Thread ${threadId} already has active run ${activeRunId}, waiting for completion...`);
+        try {
+          const existingRun = await this.openai.beta.threads.runs.retrieve(threadId, activeRunId);
+          if (existingRun.status === 'in_progress' || existingRun.status === 'requires_action') {
+            console.log(`Existing run is still active with status: ${existingRun.status}`);
+            // Wait for the existing run to complete
+            let runStatus = existingRun;
+            let iterations = 0;
+            const maxIterations = 30;
+            
+            while (runStatus.status !== "completed" && runStatus.status !== "failed" && iterations < maxIterations) {
+              if (runStatus.status === "requires_action" && runStatus.required_action?.type === "submit_tool_outputs") {
+                const toolCalls = runStatus.required_action.submit_tool_outputs.tool_calls;
+                console.log(`Handling ${toolCalls.length} tool calls for existing run`);
+                const toolOutputs = await this.handleToolCalls(toolCalls);
+                
+                await this.openai.beta.threads.runs.submitToolOutputs(threadId, activeRunId, {
+                  tool_outputs: toolOutputs
+                });
+              }
+              
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              runStatus = await this.openai.beta.threads.runs.retrieve(threadId, activeRunId);
+              iterations++;
+            }
+            
+            // Clean up the active run
+            this.activeRuns.delete(threadId);
+            
+            // Check the final status
+            if (runStatus.status === "completed") {
+              console.log("Previous run completed, now adding new message");
+            } else {
+              console.log(`Previous run ended with status: ${runStatus.status}`);
+            }
+          }
+        } catch (error) {
+          console.error(`Error checking existing run: ${error.message}`);
+          // Clean up and continue
+          this.activeRuns.delete(threadId);
+        }
+      }
+
       console.log(`Adding message to thread ${threadId}: "${userMessage}"`);
       // Add message to thread
       await this.openai.beta.threads.messages.create(threadId, {
         role: "user",
         content: userMessage
       });
-
-      // Check if thread already has an active run
-      const activeRunId = this.activeRuns.get(threadId);
       if (activeRunId) {
         console.log(`Thread ${threadId} already has active run ${activeRunId}, checking status...`);
         try {
