@@ -1,5 +1,5 @@
 import { AzureChatOpenAI } from "@langchain/azure-openai";
-import { HumanMessage, SystemMessage } from "@langchain/core/messages";
+import { HumanMessage, SystemMessage, AIMessage } from "@langchain/core/messages";
 import { DefaultAzureCredential } from "@azure/identity";
 import { testDirectAzureOpenAI } from "./directAzureTest.js";
 import { LifeManagerSystemRefactored } from "./multiAgentRefactored.js";
@@ -117,8 +117,18 @@ export class AgentService {
       }
     }
     
-    // For regular chat messages, try direct Azure OpenAI without tools first
-    if (!isInitialSummary && this.azureOpenAI) {
+    // Check if the message is asking for schedule/calendar/tasks
+    const scheduleKeywords = [
+      'schedule', 'calendar', 'task', 'event', 'appointment', 'meeting',
+      'what do i have', 'what\'s on my', 'show me my', 'list my', 'my week',
+      'this week', 'today', 'tomorrow', 'next week'
+    ];
+    const isScheduleRequest = scheduleKeywords.some(keyword => 
+      userMessage.toLowerCase().includes(keyword)
+    );
+    
+    // For regular chat messages that don't need tools, try direct Azure OpenAI
+    if (!isInitialSummary && !isScheduleRequest && this.azureOpenAI) {
       try {
         console.log("Using direct Azure OpenAI for regular chat");
         const cleanMessage = userMessage.replace("[INITIAL_SUMMARY]", "").trim();
@@ -156,6 +166,19 @@ export class AgentService {
         return responseText;
       } catch (error) {
         console.error("Direct Azure OpenAI failed:", error);
+        // Fall back to Life Manager system
+      }
+    }
+    
+    // For schedule requests, use the Multi-Agent Orchestrator
+    if (isScheduleRequest && this.multiAgentOrchestrator) {
+      try {
+        console.log("Using Multi-Agent Orchestrator for schedule request");
+        const response = await this.multiAgentOrchestrator.process(userMessage, sessionId);
+        console.log(`Multi-Agent Orchestrator response: "${response.substring(0, 100)}..."`);
+        return response;
+      } catch (error) {
+        console.error("Multi-Agent Orchestrator failed:", error);
         // Fall back to Life Manager system
       }
     }
