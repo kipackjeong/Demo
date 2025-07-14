@@ -24,7 +24,7 @@ export function setupWebSocketServer(wss: WebSocketServer, storage: IStorage) {
     // We'll get user info from the message itself since WebSocket doesn't share Express session easily
     let userId: number | null = null;
     let user: any = null;
-    let agentService: AgentService = new AgentService();
+    let agentService: AgentService | null = null;
 
     // Send initial connection success message immediately
     try {
@@ -149,8 +149,14 @@ async function handleWebSocketMessage(
         console.log(`Created new AgentService for session: ${message.sessionId}`);
       }
     } else if (!agentService) {
-      // No user context and no existing agent service, create a default one
-      agentService = new AgentService();
+      // No user context and no existing agent service, create a default one with anonymous user
+      const defaultUser = {
+        id: 0,
+        email: 'anonymous@demo.com',
+        firstName: 'Demo',
+        lastName: 'User'
+      };
+      agentService = new AgentService(defaultUser);
       agentServiceMap.set(message.sessionId, agentService);
       console.log(`Created default AgentService for session: ${message.sessionId}`);
     }

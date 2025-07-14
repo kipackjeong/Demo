@@ -11,7 +11,7 @@ import connectPg from "connect-pg-simple";
 
 declare global {
   namespace Express {
-    interface User extends User {}
+    interface User extends User { }
   }
 }
 
@@ -32,7 +32,7 @@ async function comparePasswords(supplied: string, stored: string) {
 
 export function setupAuth(app: Express) {
   const PostgresSessionStore = connectPg(session);
-  const sessionStore = new PostgresSessionStore({ 
+  const sessionStore = new PostgresSessionStore({
     conString: process.env.DATABASE_URL,
     createTableIfMissing: true,
     tableName: 'session' // Use singular name to match connect-pg-simple default
@@ -81,7 +81,7 @@ export function setupAuth(app: Express) {
 
   // Google Strategy
   const getCallbackURL = () => {
-    const domain = process.env.REPLIT_DOMAINS || 'localhost:5000';
+    const domain = process.env.REPLIT_DOMAINS || 'localhost:3000';
     return `https://${domain}/api/auth/google/callback`;
   };
 
@@ -101,18 +101,18 @@ export function setupAuth(app: Express) {
           console.log("- Access Token:", accessToken ? "Present" : "Missing");
           console.log("- Refresh Token:", refreshToken ? "Present" : "Missing");
           console.log("- Request query:", req.query);
-          
+
           // If no refresh token and user is forcing consent, log warning
           if (!refreshToken && req.query.state === 'force_consent') {
             console.warn("WARNING: Force consent requested but no refresh token received from Google");
           }
-          
+
           let user = await storage.getUserByGoogleId(profile.id);
-          
+
           if (!user) {
             // Check if user exists by email
             user = await storage.getUserByEmail(profile.emails?.[0]?.value || "");
-            
+
             if (user) {
               // Link Google account to existing user
               console.log("Linking Google account to existing user:", user.email);
@@ -131,7 +131,7 @@ export function setupAuth(app: Express) {
                 profileImageUrl: profile.photos?.[0]?.value,
                 googleId: profile.id,
               });
-              
+
               user = await storage.updateUser(user.id, {
                 googleAccessToken: accessToken,
                 googleRefreshToken: refreshToken || user.googleRefreshToken, // Keep existing if not provided
@@ -145,12 +145,12 @@ export function setupAuth(app: Express) {
               googleRefreshToken: refreshToken || user.googleRefreshToken, // Keep existing if not provided
             });
           }
-          
+
           console.log(`Google OAuth: Final user state for ${user.email}`);
           console.log(`- User ID: ${user.id}`);
           console.log(`- Access Token: ${user.googleAccessToken ? 'Present' : 'Missing'}`);
           console.log(`- Refresh Token: ${user.googleRefreshToken ? 'Present' : 'Missing'}`);
-          
+
           // Force refresh token issue if missing
           if (!refreshToken && !user.googleRefreshToken) {
             console.warn("WARNING: No refresh token provided by Google. User may need to re-authorize.");
@@ -182,7 +182,7 @@ export function setupAuth(app: Express) {
   app.post("/api/auth/register", async (req, res, next) => {
     try {
       const { email, password, firstName, lastName } = req.body;
-      
+
       const existingUser = await storage.getUserByEmail(email);
       if (existingUser) {
         return res.status(400).json({ message: "User already exists" });
@@ -198,7 +198,7 @@ export function setupAuth(app: Express) {
 
       req.login(user, (err) => {
         if (err) return next(err);
-        res.status(201).json({ 
+        res.status(201).json({
           id: user.id,
           email: user.email,
           firstName: user.firstName,
@@ -223,11 +223,11 @@ export function setupAuth(app: Express) {
     });
   });
 
-  app.get("/api/auth/google", passport.authenticate("google", { 
-    scope: ["profile", "email", "https://www.googleapis.com/auth/calendar", "https://www.googleapis.com/auth/tasks"] 
+  app.get("/api/auth/google", passport.authenticate("google", {
+    scope: ["profile", "email", "https://www.googleapis.com/auth/calendar", "https://www.googleapis.com/auth/tasks"]
   }));
 
-  app.get("/api/auth/google/callback", 
+  app.get("/api/auth/google/callback",
     passport.authenticate("google", { failureRedirect: "/auth" }),
     (req, res) => {
       res.redirect("/");
@@ -245,7 +245,7 @@ export function setupAuth(app: Express) {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Not authenticated" });
     }
-    
+
     const user = req.user as User;
     res.json({
       id: user.id,
